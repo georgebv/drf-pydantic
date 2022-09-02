@@ -52,3 +52,31 @@ addopts = "-v --cov=drf_pydantic --cov-report=term"
 testpaths = [
     "tests",
 ]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if __name__ == .__main__.:',
+    'def __repr__',
+]
+fail_under = 100
+precision = 1
+skip_empty = true
+sort = "-Cover"
+
+[tool.pylint.'MASTER']
+fail-under = 8.0
+extension-pkg-allow-list = "pydantic"
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "too-few-public-methods",
+    "useless-super-delegation",
+]
+
+[tool.pylint.'FORMAT']
+max-line-length = 88
