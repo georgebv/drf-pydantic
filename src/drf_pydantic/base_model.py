@@ -8,7 +8,7 @@ import pydantic
 
 from rest_framework import serializers
 
-SERIALIZER_REGISTRY: dict[str, typing.Type[serializers.Serializer]] = {}
+SERIALIZER_REGISTRY: dict[type, typing.Type[serializers.Serializer]] = {}
 
 # Read this https://www.django-rest-framework.org/api-guide/fields/
 FIELD_MAP: dict[type, typing.Type[serializers.Field]] = {
@@ -34,18 +34,17 @@ class ModelMetaclass(pydantic.main.ModelMetaclass, type):
     def __new__(mcs, name, bases, namespace, **kwargs):
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
-        serializer_name = f"{cls.__name__}Serializer"
-        if serializer_name not in SERIALIZER_REGISTRY:
+        if cls not in SERIALIZER_REGISTRY:
             fields: dict[str, typing.Type[serializers.Field]] = {}
             for field_name, field in cls.__fields__.items():
                 fields[field_name] = _convert_field(field)
-            SERIALIZER_REGISTRY[serializer_name] = type(
-                serializer_name,
+            SERIALIZER_REGISTRY[cls] = type(
+                f"{cls.__name__}Serializer",
                 (serializers.Serializer,),
                 fields,
             )
 
-        cls.drf_serializer = SERIALIZER_REGISTRY[serializer_name]
+        setattr(cls, "drf_serializer", SERIALIZER_REGISTRY[cls])
 
         return cls
 
@@ -86,29 +85,13 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
     if field.outer_type_ is field.type_:
         # Normal class
         if inspect.isclass(field.type_):
-            # Nested model
-            if issubclass(field.type_, BaseModel):
-                raise NotImplementedError("Nested models are not yet supported.")
-
-            # "Normal" type
-            if issubclass(field.type_, pydantic.BaseModel):
-                raise TypeError(
-                    " ".join(
-                        [
-                            f"Model {field.type_.__name__} is a",
-                            "normal pydantic model.",
-                            "All nested pydantic models must be inherited",
-                            "from drf_pydantic.BaseModel",
-                        ]
-                    )
-                )
             return _convert_type(field.type_)(**extra_kwargs)
 
         # Alias
         if field.type_.__origin__ is typing.Literal:
             choices = field.type_.__args__
             assert all(isinstance(choice, str) for choice in choices)
-            return serializers.MultipleChoiceField(choices=choices, **extra_kwargs)
+            return serializers.ChoiceField(choices=choices, **extra_kwargs)
         raise NotImplementedError(f"{field.type_.__name__} is not yet supported")
 
     # Container field
@@ -139,6 +122,20 @@ def _convert_type(type_: type) -> typing.Type[serializers.Field]:
         Serializer field class.
 
     """
+    # Nested model
+    if issubclass(type_, BaseModel):
+        return type_.drf_serializer
+
+    if issubclass(type_, pydantic.BaseModel):
+        raise TypeError(
+            " ".join(
+                [
+                    f"Model {type_.__name__} is a normal pydantic model.",
+                    "All nested models must be inherited from drf_pydantic.BaseModel",
+                ]
+            )
+        )
+
     try:
         return FIELD_MAP[type_]
     except KeyError as error:

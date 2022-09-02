@@ -27,7 +27,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pydantic = "^1.9.0"
+pydantic = {extras = ["email"], version = "^1.9.0"}
 djangorestframework = "^3.13.0"
 
 [tool.poetry.dev-dependencies]
@@ -60,6 +60,9 @@ exclude_lines = [
     'raise NotImplementedError',
     'if __name__ == .__main__.:',
     'def __repr__',
+]
+omit = [
+    "src/drf_pydantic/test_utils.py",
 ]
 fail_under = 100
 precision = 1
