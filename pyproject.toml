@@ -53,6 +53,11 @@ testpaths = [
     "tests",
 ]
 
+[tool.coverage.run]
+omit = [
+    "src/drf_pydantic/test_utils.py",
+]
+
 [tool.coverage.report]
 exclude_lines = [
     'pragma: no cover',
@@ -60,9 +65,7 @@ exclude_lines = [
     'raise NotImplementedError',
     'if __name__ == .__main__.:',
     'def __repr__',
-]
-omit = [
-    "src/drf_pydantic/test_utils.py",
+    "if ?(typing.)TYPE_CHECKING:",
 ]
 fail_under = 90
 precision = 1
