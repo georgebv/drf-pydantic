@@ -96,9 +96,7 @@ jobs:
       - name: Publish to TestPyPI
         run: |
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          poetry config pypi-token.test-pypi ${{ secrets.PYPI_TOKEN }}
-          poetry build
-          poetry publish --repository test-pypi
+          poetry publish --build --repository test-pypi --username __token__ --password ${{ secrets.PYPI_TOKEN }}
   deploy-pypi:
     name: Deploy to PyPI
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -127,7 +125,4 @@ jobs:
       - name: Install project and its dependencies
         run: poetry install
       - name: Publish to TestPyPI
-        run: |
-          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-          poetry build
-          poetry publish
+        run: poetry publish --build --username __token__ --password ${{ secrets.PYPI_TOKEN }}
