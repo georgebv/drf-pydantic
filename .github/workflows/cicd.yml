@@ -101,7 +101,7 @@ jobs:
           poetry publish --repository test-pypi
   deploy-pypi:
     name: Deploy to PyPI
-    if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: test
     runs-on: ubuntu-latest
     environment: test
