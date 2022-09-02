@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drf-pydantic"
-version = "0.1.0"
+version = "0.2.0"
 description = "Use pydantic with the Django REST framework"
 license = "MIT"
 authors = ["George Bocharov <bocharovgeorgii@gmail.com>"]
@@ -9,7 +9,7 @@ homepage = "https://github.com/georgebv/drf-pydantic"
 repository = "https://github.com/georgebv/drf-pydantic"
 keywords = ["django", "drf", "pydantic", "typing", "rest", "api"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
