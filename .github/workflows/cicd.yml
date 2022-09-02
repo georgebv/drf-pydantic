@@ -6,6 +6,9 @@ on:
       - "main"
   pull_request:
 
+env:
+  PYTHON_VERSION: 3.10
+
 jobs:
   test:
     name: Test with Python ${{ matrix.python_version }}
@@ -13,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python_version: ["3.8", "3.9", "3.10"]
+        python_version: ["3.9", "3.10"]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -25,7 +28,7 @@ jobs:
         id: cache-poetry
         uses: actions/cache@v3
         with:
-          key: poetry-${{ hashFiles('poetry.lock') }}
+          key: poetry-${{ hashFiles('poetry.lock') }}-py${{ matrix.python_version }}
           path: |
             ~/.local/bin/poetry
             ~/.local/share/pypoetry
@@ -39,6 +42,7 @@ jobs:
       - name: Run tests
         run: poetry run pytest --cov-report=xml:coverage.xml
       - name: Upload coverage artifact
+        if: ${{ matrix.python_version == env.PYTHON_VERSION }}
         uses: actions/upload-artifact@v3
         with:
           name: coverage-report
