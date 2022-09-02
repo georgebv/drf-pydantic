@@ -1,17 +1,145 @@
-from typing import Type
+import datetime
+import decimal
+import inspect
+import types
+import typing
 
-from pydantic import BaseModel as PydanticBaseModel
+import pydantic
+
 from rest_framework import serializers
 
-from drf_pydantic.converter import convert_field
+SERIALIZER_REGISTRY: dict[str, typing.Type[serializers.Serializer]] = {}
+
+# Read this https://www.django-rest-framework.org/api-guide/fields/
+FIELD_MAP: dict[type, typing.Type[serializers.Field]] = {
+    # Boolean fields
+    bool: serializers.BooleanField,
+    # String fields
+    str: serializers.CharField,
+    pydantic.EmailStr: serializers.EmailField,
+    pydantic.HttpUrl: serializers.URLField,
+    # Numeric fields
+    int: serializers.IntegerField,
+    float: serializers.FloatField,
+    decimal.Decimal: serializers.DecimalField,
+    # Date and time fields
+    datetime.date: serializers.DateField,
+    datetime.time: serializers.TimeField,
+    datetime.datetime: serializers.DateTimeField,
+    datetime.timedelta: serializers.DurationField,
+}
 
 
-class BaseModel(PydanticBaseModel):
-    @property
-    def drf_serializer(self) -> Type[serializers.Serializer]:
-        """
-        Generate serializer compatible with Django REST framework.
-        """
-        fields: dict[str, serializers.Field] = {}
-        for name, field in self.__fields__.items():
-            fields[name] = convert_field(field)
+class ModelMetaclass(pydantic.main.ModelMetaclass, type):
+    def __new__(mcs, name, bases, namespace, **kwargs):
+        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+        serializer_name = f"{cls.__name__}Serializer"
+        if serializer_name not in SERIALIZER_REGISTRY:
+            fields: dict[str, typing.Type[serializers.Field]] = {}
+            for field_name, field in cls.__fields__.items():
+                fields[field_name] = _convert_field(field)
+            SERIALIZER_REGISTRY[serializer_name] = type(
+                serializer_name,
+                (serializers.Serializer,),
+                fields,
+            )
+
+        cls.drf_serializer = SERIALIZER_REGISTRY[serializer_name]
+
+        return cls
+
+
+class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
+    if typing.TYPE_CHECKING:
+        # populated by the metaclass, defined here to help IDEs only
+        drf_serializer: typing.Type[serializers.Serializer]
+
+
+def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
+    """
+    Convert pydantic field to Django REST framework serializer field.
+
+    Parameters
+    ----------
+    field : pydantic.fields.ModelField
+        Field to convert.
+
+    Returns
+    -------
+    rest_framework.serializers.Field
+        Django REST framework serializer field instance.
+
+    """
+    extra_kwargs: dict[str, typing.Any] = {}
+    if isinstance(field.required, pydantic.fields.UndefinedType):
+        extra_kwargs["required"] = True
+    else:
+        extra_kwargs["required"] = field.required
+    if field.default is not None:
+        extra_kwargs["default"] = field.default
+    if field.allow_none:
+        extra_kwargs["allow_null"] = True
+        extra_kwargs["default"] = None
+
+    # Scalar field
+    if field.outer_type_ is field.type_:
+        # Normal class
+        if inspect.isclass(field.type_):
+            # Nested model
+            if issubclass(field.type_, BaseModel):
+                raise NotImplementedError("Nested models are not yet supported.")
+
+            # "Normal" type
+            if issubclass(field.type_, pydantic.BaseModel):
+                raise TypeError(
+                    " ".join(
+                        [
+                            f"Model {field.type_.__name__} is a",
+                            "normal pydantic model.",
+                            "All nested pydantic models must be inherited",
+                            "from drf_pydantic.BaseModel",
+                        ]
+                    )
+                )
+            return _convert_type(field.type_)(**extra_kwargs)
+
+        # Alias
+        if field.type_.__origin__ is typing.Literal:
+            choices = field.type_.__args__
+            assert all(isinstance(choice, str) for choice in choices)
+            return serializers.MultipleChoiceField(choices=choices, **extra_kwargs)
+        raise NotImplementedError(f"{field.type_.__name__} is not yet supported")
+
+    # Container field
+    assert isinstance(field.outer_type_, types.GenericAlias)
+    if field.outer_type_.__origin__ is list:
+        return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
+    raise NotImplementedError(
+        f"Container type '{field.outer_type_.__origin__.__name__}' is not yet supported"
+    )
+
+
+def _convert_type(type_: type) -> typing.Type[serializers.Field]:
+    """
+    Convert scalar type to serializer field class.
+
+    Scalar field is any field that is not a pydantic model (this would be nested field)
+    or a collection field (e.g., list[int]).
+    Examples of scalar fields: int, float, datetime, pydantic.EmailStr
+
+    Parameters
+    ----------
+    type_ : type
+        Field class.
+
+    Returns
+    -------
+    typing.Type[serializers.Field]
+        Serializer field class.
+
+    """
+    try:
+        return FIELD_MAP[type_]
+    except KeyError as error:
+        raise NotImplementedError(f"{type_.__name__} is not yet supported") from error

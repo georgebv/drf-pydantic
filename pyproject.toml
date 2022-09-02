@@ -76,6 +76,7 @@ disable = [
     "missing-class-docstring",
     "too-few-public-methods",
     "useless-super-delegation",
+    "bad-mcs-classmethod-argument",
 ]
 
 [tool.pylint.'FORMAT']
