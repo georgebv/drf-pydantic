@@ -3,6 +3,7 @@ import decimal
 import inspect
 import types
 import typing
+import uuid
 
 import pydantic
 
@@ -18,6 +19,7 @@ FIELD_MAP: dict[type, typing.Type[serializers.Field]] = {
     str: serializers.CharField,
     pydantic.EmailStr: serializers.EmailField,
     pydantic.HttpUrl: serializers.URLField,
+    uuid.UUID: serializers.UUIDField,
     # Numeric fields
     int: serializers.IntegerField,
     float: serializers.FloatField,
