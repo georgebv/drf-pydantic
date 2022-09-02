@@ -2,6 +2,7 @@ import datetime
 import typing
 
 import pydantic
+import pytest
 
 from rest_framework import serializers
 
@@ -31,6 +32,17 @@ class TestSuccesses:
 
         assert compare_serializers(User.drf_serializer(), UserSerializer())
 
+    def test_model_with_field_default(self):
+        class User(BaseModel):
+            username: str
+            role: str = "user"
+
+        class UserSerializer(serializers.Serializer):
+            username = serializers.CharField()
+            role = serializers.CharField(default="user")
+
+        assert compare_serializers(User.drf_serializer(), UserSerializer())
+
     def test_model_with_literal_field(self):
         class User(BaseModel):
             role: typing.Literal["admin", "developer", "user"]
@@ -48,6 +60,25 @@ class TestSuccesses:
             addresses = serializers.ListField(child=serializers.CharField())
 
         assert compare_serializers(User.drf_serializer(), UserSerializer())
+
+    # def test_nested_model(self):
+    #     class Address(BaseModel):
+    #         type_: typing.Literal["home", "work"]
+    #         address: str
+
+    #     class User(BaseModel):
+    #         name: str
+    #         address: Address
+
+    #     class AddressSerializer(serializers.Serializer):
+    #         type_ = serializers.ChoiceField(choices=["home", "work"])
+    #         address = serializers.CharField()
+
+    #     class UserSerializer(serializers.Serializer):
+    #         name = serializers.CharField()
+    #         address = AddressSerializer()
+
+    #     assert compare_serializers(User.drf_serializer(), UserSerializer())
 
 
 class TestFailures:
@@ -77,3 +108,17 @@ class TestFailures:
             addresses = serializers.ListField(child=serializers.IntegerField())
 
         assert not compare_serializers(User.drf_serializer(), UserSerializer())
+
+    def test_nested_model(self):
+        class Address(pydantic.BaseModel):
+            type_: typing.Literal["home", "work"]
+            address: str
+
+        with pytest.raises(
+            TypeError,
+            match=r"Model Address .+ All nested models must be inherited.+",
+        ):
+
+            class User(BaseModel):
+                name: str
+                address: Address

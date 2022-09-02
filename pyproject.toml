@@ -64,7 +64,7 @@ exclude_lines = [
 omit = [
     "src/drf_pydantic/test_utils.py",
 ]
-fail_under = 100
+fail_under = 90
 precision = 1
 skip_empty = true
 sort = "-Cover"
