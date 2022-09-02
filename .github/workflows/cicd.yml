@@ -99,3 +99,35 @@ jobs:
           poetry config pypi-token.test-pypi ${{ secrets.PYPI_TOKEN }}
           poetry build
           poetry publish --repository test-pypi
+  deploy-pypi:
+    name: Deploy to PyPI
+    if: ${{ github.event_name == 'push' && github.ref == 'main' }}
+    needs: test
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSIOn }}
+      - name: Cache poetry installation
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          key: poetry-${{ hashFiles('poetry.lock') }}-py${{ env.PYTHON_VERSIOn }}
+          path: |
+            ~/.local/bin/poetry
+            ~/.local/share/pypoetry
+            ~/.cache/pypoetry
+      - name: Install poetry
+        if: ${{ steps.cache-poetry.outputs.cache-hit != 'true' }}
+        run: curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install project and its dependencies
+        run: poetry install
+      - name: Publish to TestPyPI
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry build
+          poetry publish --repository pypi
