@@ -37,6 +37,7 @@ isort = "^5.10.1"
 pylint = "^2.15.0"
 flake8 = "^5.0.4"
 pytest = "^7.1.2"
+pytest-cov = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -45,3 +46,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.isort]
 profile = "black"
 lines_between_types = 1
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=drf_pydantic --cov-report=term"
+testpaths = [
+    "tests",
+]

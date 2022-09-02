@@ -1,3 +1,9 @@
 # Dev
 .vscode
 .venv
+
+# Python
+*.py[co]
+
+# Dev artifacts
+.coverage
