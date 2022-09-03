@@ -48,7 +48,7 @@ profile = "black"
 lines_between_types = 1
 
 [tool.pytest.ini_options]
-addopts = "-v --cov=drf_pydantic --cov-report=term"
+addopts = "-v --cov=drf_pydantic --cov-report=term --cov-report=xml --cov-report=html"
 testpaths = [
     "tests",
 ]
