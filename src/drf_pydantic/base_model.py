@@ -17,4 +17,4 @@ class ModelMetaclass(pydantic.main.ModelMetaclass, type):
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
     if typing.TYPE_CHECKING:
         # populated by the metaclass, defined here to help IDEs only
-        drf_serializer: typing.Type[serializers.Serializer]
+        drf_serializer: type[serializers.Serializer]
