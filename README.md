@@ -21,6 +21,7 @@
 - [Usage](#usage)
   - [General](#general)
   - [Existing Models](#existing-models)
+  - [Nested Models](#nested-models)
 - [Roadmap](#roadmap)
 
 # Introduction
@@ -102,6 +103,30 @@ Dog.drf_serializer
 > ⚠️ **ATTENTION**<br>
 > Inheritance order is important: `drf_pydantic.BaseModel` must always go before
 > the `pydantic.BaseModel` class.
+
+## Nested Models
+
+If you have nested models and you want to generate serializer only from one of them,
+you don't have to update all models - only update the model you need, `drf_pydantic`
+will generate serializers for all normal nested `pydantic` models for free 🐱‍👤.
+
+```python
+from drf_pydantic import BaseModel as DRFBaseModel
+from pydantic import BaseModel
+
+class Apartment(BaseModel):
+  floor: int
+  tenant: str
+
+class Building(BaseModel):
+  address: str
+  aparments: list[Apartment]
+
+class Block(DRFBaseModel):
+  buildings: list[Buildind]
+
+Block.drf_serializer
+```
 
 # Roadmap
 
