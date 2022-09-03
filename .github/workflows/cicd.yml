@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: test
-      url: https://test.pypi.org/project/drf-pydantic/
+      url: https://test.pypi.org/project/drf-pydantic
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -98,7 +98,7 @@ jobs:
       - name: Publish to TestPyPI
         run: |
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          poetry publish --build --repository test-pypi --username __token__ --password ${{ secrets.PYPI_TOKEN }}
+          poetry publish --build --repository test-pypi --username __token__ --password ${{ secrets.PYPI_TOKEN }} --skip-existing
   deploy-pypi:
     name: Deploy to PyPI
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: prod
-      url: https://pypi.org/project/drf-pydantic/
+      url: https://pypi.org/project/drf-pydantic
     steps:
       - name: Checkout
         uses: actions/checkout@v3
