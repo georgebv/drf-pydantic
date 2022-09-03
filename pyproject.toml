@@ -53,11 +53,6 @@ testpaths = [
     "tests",
 ]
 
-[tool.coverage.run]
-omit = [
-    "src/drf_pydantic/test_utils.py",
-]
-
 [tool.coverage.report]
 exclude_lines = [
     'pragma: no cover',
