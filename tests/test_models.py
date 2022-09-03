@@ -187,5 +187,25 @@ def test_nested_model_list():
 
 
 def test_nested_model_only_last():
-    # TODO - only last class is updated with decorator, nested are normal pydantic
-    pass
+    class Apartment(pydantic.BaseModel):
+        floor: int
+        owner: str
+
+    class Building(BaseModel):
+        address: str
+        apartments: list[Apartment]
+
+    serializer = Building.drf_serializer()
+
+    # Top model
+    assert serializer.__class__.__name__ == "BuildingSerializer"
+    assert len(serializer.fields) == 2
+    assert isinstance(serializer.fields["address"], serializers.CharField)
+    assert isinstance(serializer.fields["apartments"], serializers.ListField)
+
+    # Nested model
+    apartment: serializers.Serializer = serializer.fields["apartments"].child
+    assert apartment.__class__.__name__ == "ApartmentSerializer"
+    assert len(apartment.fields) == 2
+    assert isinstance(apartment.fields["floor"], serializers.IntegerField)
+    assert isinstance(apartment.fields["owner"], serializers.CharField)
