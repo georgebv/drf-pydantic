@@ -8,3 +8,5 @@
 # Dev artifacts
 .coverage
 dist
+coverage.xml
+htmlcov
