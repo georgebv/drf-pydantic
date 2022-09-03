@@ -6,7 +6,7 @@
     <img src="https://codecov.io/gh/georgebv/drf-pydantic/branch/main/graph/badge.svg?token=GN9rxzIFMc" alt="Test Coverage"/>
   </a>
   <a href="https://badge.fury.io/py/drf-pydantic" target="_blank">
-    <img src="https://badge.fury.io/py/drf-pydantic.svg" alt="PyPI version" height="18">
+    <img src="https://badge.fury.io/py/drf-pydantic.svg" alt="PyPI version" height="20">
   </a>
 </p>
 
@@ -20,12 +20,12 @@
 - [Installation](#installation)
 - [Usage](#usage)
   - [General](#general)
-  - [Custom Base Models](#custom-base-models)
+  - [Existing Models](#existing-models)
 - [Roadmap](#roadmap)
 
 # Introduction
 
-[Pydantic](https://pydantic-docs.helpmanual.io) is a great Python library to perform
+[Pydantic](https://pydantic-docs.helpmanual.io) is a Python library used to perform
 data serialization and validation.
 
 [Django REST framework](https://www.django-rest-framework.org) is a framework built
@@ -62,23 +62,41 @@ MyModel.drf_serializer
 
 > ℹ️ **INFO**<br>
 > Models created using `drf_pydantic` are fully idenditcal to those created by
-> `pydantic` and only the `drf_serializer` attribute is added on class creation.
+> `pydantic`. The only change is the addition of the `drf_serializer` attribute
+> during class creation (not instance).
 
-## Custom Base Models
+## Existing Models
 
-You can also use it as a mixin with your existing pydantic models (no need to change
-your existing code 🥳):
+If you have an existing code base and you would like to use the `drf_serializer`
+attribute to only specific models, then great news 🥳 - you can easily extend
+your existign `pydantic` models by adding `drf_pydantic.BaseModel` to the list
+of parent classes.
+
+Your existing pydantic models:
+
+```python
+from pydantic import BaseModel
+
+class Pet(BaseModel):
+  name: str
+
+class Dog(Pet):
+  breed: str
+```
+
+Update your `Dog` model and get serializer via the `drf_serializer`:
 
 ```python
 from drf_pydantic import BaseModel as DRFBaseModel
 from pydantic import BaseModel
 
-class MyBaseModel(BaseModel):
-  value: int
-
-class MyModel(DRFBaseModel, MyBaseModel):
+class Pet(BaseModel):
   name: str
-  addresses: list[str]
+
+class Dog(DRFBaseModel, Pet):
+  breed: str
+
+Dog.drf_serializer
 ```
 
 > ⚠️ **ATTENTION**<br>
