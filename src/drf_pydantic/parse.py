@@ -13,11 +13,11 @@ from rest_framework import serializers
 # between pydantic models and serializer classes
 # This is useful during introspection in tools such as drf_spectacular, so that
 # it doesn't pick the same serializer as distinct objects due to dynamic generation
-SERIALIZER_REGISTRY: dict[type, typing.Type[serializers.Serializer]] = {}
+SERIALIZER_REGISTRY: dict[type, type[serializers.Serializer]] = {}
 
 # https://pydantic-docs.helpmanual.io/usage/types
 # https://www.django-rest-framework.org/api-guide/fields
-FIELD_MAP: dict[type, typing.Type[serializers.Field]] = {
+FIELD_MAP: dict[type, type[serializers.Field]] = {
     # Boolean fields
     bool: serializers.BooleanField,
     # String fields
@@ -38,24 +38,24 @@ FIELD_MAP: dict[type, typing.Type[serializers.Field]] = {
 
 
 def create_serializer_from_model(
-    model_class: typing.Type[pydantic.BaseModel],
-) -> typing.Type[serializers.Serializer]:
+    model_class: type[pydantic.BaseModel],
+) -> type[serializers.Serializer]:
     """
     Create serializer from a pydantic model.
 
     Parameters
     ----------
-    model_class : typing.Type[pydantic.BaseModel]
+    model_class : type[pydantic.BaseModel]
         Pydantic model class (not instance!).
 
     Returns
     -------
-    typing.Type[serializers.Serializer]
+    type[serializers.Serializer]
         Django REST framework serializer class.
 
     """
     if model_class not in SERIALIZER_REGISTRY:
-        fields: dict[str, typing.Type[serializers.Field]] = {}
+        fields: dict[str, type[serializers.Field]] = {}
         for field_name, field in model_class.__fields__.items():
             fields[field_name] = _convert_field(field)
         SERIALIZER_REGISTRY[model_class] = type(
@@ -107,14 +107,14 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
 
     # Container field
     assert isinstance(field.outer_type_, types.GenericAlias)
-    if field.outer_type_.__origin__ is list:
+    if field.outer_type_.__origin__ is list or field.outer_type_.__origin__ is tuple:
         return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
     raise NotImplementedError(
         f"Container type '{field.outer_type_.__origin__.__name__}' is not yet supported"
     )
 
 
-def _convert_type(type_: type) -> typing.Type[serializers.Field]:
+def _convert_type(type_: type) -> type[serializers.Field]:
     """
     Convert scalar type to serializer field class.
 
@@ -129,7 +129,7 @@ def _convert_type(type_: type) -> typing.Type[serializers.Field]:
 
     Returns
     -------
-    typing.Type[serializers.Field]
+    type[serializers.Field]
         Serializer field class.
 
     """

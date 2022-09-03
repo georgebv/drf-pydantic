@@ -132,3 +132,4 @@ Block.drf_serializer
 
 - Add `ENUM` support
 - Add option to create custom serializer for complex models
+- Add support for constraints (max, min, regex, etc.)
