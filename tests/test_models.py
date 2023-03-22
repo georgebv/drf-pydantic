@@ -209,3 +209,51 @@ def test_nested_model_only_last():
     assert len(apartment.fields) == 2
     assert isinstance(apartment.fields["floor"], serializers.IntegerField)
     assert isinstance(apartment.fields["owner"], serializers.CharField)
+
+
+def test_int_constraint():
+     
+    class Person(BaseModel):
+        name: str
+        email: pydantic.EmailStr
+        age: int = pydantic.Field(ge=0, le=100)
+        salary: int = pydantic.Field(gt=0, lt=100)
+
+    serializer = Person.drf_serializer()
+
+    assert isinstance(serializer.fields["age"], serializers.IntegerField)
+    
+    # With constraints
+    field: serializers.Field = serializer.fields["age"]
+    assert isinstance(field, serializers.IntegerField)
+    assert field.allow_null is False
+    assert field.required is True
+    assert field.min_value == 0
+    assert field.max_value == 100
+
+    # With constraints
+    field: serializers.Field = serializer.fields["salary"]
+    assert isinstance(field, serializers.IntegerField)
+    assert field.allow_null is False
+    assert field.required is True
+    assert field.min_value == 1
+    assert field.max_value == 99
+
+
+def test_str_constraint():
+         
+    class Person(BaseModel):
+        name: str = pydantic.Field(min_length=3, max_length=10)
+        email: pydantic.EmailStr
+        age: int
+
+    serializer = Person.drf_serializer()
+
+    assert isinstance(serializer.fields["name"], serializers.CharField)
+    
+    field: serializers.Field = serializer.fields["name"]
+    assert isinstance(field, serializers.CharField)
+    assert field.allow_null is False
+    assert field.required is True
+    assert field.min_length == 3
+    assert field.max_length == 10
