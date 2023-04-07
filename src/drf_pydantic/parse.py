@@ -95,7 +95,21 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         extra_kwargs["allow_null"] = True
         extra_kwargs["default"] = None
     
-    _check_constraints(field, extra_kwargs)
+    #check if field._type is a subclass of ConstrainedNumberMeta
+    if issubclass(field.type_.__class__, pydantic.types.ConstrainedNumberMeta):
+        if field.type_.gt is not None:
+            extra_kwargs["min_value"] = field.type_.gt + 1
+        elif field.type_.ge is not None:
+            extra_kwargs["min_value"] = field.type_.ge
+        if field.type_.lt is not None:
+            extra_kwargs["max_value"] = field.type_.lt - 1
+        elif field.type_.le is not None:
+            extra_kwargs["max_value"] = field.type_.le
+    
+    #check if field._type is a subclass of ConstrainedStr
+    if inspect.isclass(field.type_) and issubclass(field.type_, pydantic.types.ConstrainedStr):
+        extra_kwargs["min_length"] = field.type_.min_length
+        extra_kwargs["max_length"] = field.type_.max_length
     
     # Scalar field
     if field.outer_type_ is field.type_:
@@ -145,41 +159,9 @@ def _convert_type(type_: type) -> type[serializers.Field]:
         except AttributeError:
             return create_serializer_from_model(type_)
 
-    try:
-        return FIELD_MAP[type_]
-    except KeyError as error:
+    for key in [type_, type_.__base__]:
         try:
-            return FIELD_MAP[type_.__base__]
+            return FIELD_MAP[key]
         except KeyError:
-            raise NotImplementedError(f"{type_.__name__} is not yet supported") from error
-
-
-def _check_constraints(field: pydantic.fields.ModelField, extra_kwargs: dict[str, typing.Any]) -> None:
-    """
-    Check for constraints and add them to extra_kwargs.
-
-    Parameters
-    ----------
-    field : pydantic.fields.ModelField
-        Field to check.
-    extra_kwargs : dict[str, typing.Any]
-        Extra keyword arguments to add to.
-
-    """
-    
-    #check if field._type is a subclass of ConstrainedNumberMeta
-    if issubclass(field.type_.__class__, pydantic.types.ConstrainedNumberMeta):
-
-        if field.type_.gt is not None:
-            extra_kwargs["min_value"] = field.type_.gt + 1
-        elif field.type_.ge is not None:
-            extra_kwargs["min_value"] = field.type_.ge
-        if field.type_.lt is not None:
-            extra_kwargs["max_value"] = field.type_.lt - 1
-        elif field.type_.le is not None:
-            extra_kwargs["max_value"] = field.type_.le
-    
-    #check if field._type is a subclass of ConstrainedStr
-    if inspect.isclass(field.type_) and issubclass(field.type_, pydantic.types.ConstrainedStr):
-        extra_kwargs["min_length"] = field.type_.min_length
-        extra_kwargs["max_length"] = field.type_.max_length
+            continue
+    raise NotImplementedError(f"{type_.__name__} is not yet supported")
