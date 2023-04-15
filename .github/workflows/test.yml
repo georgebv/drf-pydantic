@@ -35,7 +35,7 @@ jobs:
           export PATH="~/.local/share/pypoetry/bin:$PATH"
           poetry install
       - name: Run tests and generate coverage report
-        run: scripts/run-pytest.sh
+        run: poetry run pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         if: success() && matrix.python-version == '3.9'
