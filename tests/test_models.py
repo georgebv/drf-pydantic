@@ -212,7 +212,6 @@ def test_nested_model_only_last():
 
 
 def test_int_constraint():
-     
     class Person(BaseModel):
         name: str
         email: pydantic.EmailStr
@@ -222,7 +221,7 @@ def test_int_constraint():
     serializer = Person.drf_serializer()
 
     assert isinstance(serializer.fields["age"], serializers.IntegerField)
-    
+
     # With constraints
     field: serializers.Field = serializer.fields["age"]
     assert isinstance(field, serializers.IntegerField)
@@ -241,7 +240,6 @@ def test_int_constraint():
 
 
 def test_str_constraint():
-         
     class Person(BaseModel):
         name: str = pydantic.Field(min_length=3, max_length=10)
         email: pydantic.EmailStr
@@ -250,10 +248,26 @@ def test_str_constraint():
     serializer = Person.drf_serializer()
 
     assert isinstance(serializer.fields["name"], serializers.CharField)
-    
+
     field: serializers.Field = serializer.fields["name"]
     assert isinstance(field, serializers.CharField)
     assert field.allow_null is False
     assert field.required is True
     assert field.min_length == 3
     assert field.max_length == 10
+
+
+def test_model_with_list_from_typing():
+    class Item(BaseModel):
+        name: str
+
+    class Cart(BaseModel):
+        items: typing.List[Item]
+
+    serializer = Cart.drf_serializer()
+
+    assert isinstance(serializer, serializers.Serializer)
+
+    field: serializers.Field = serializer.fields["items"]
+    assert isinstance(field, serializers.ListField)
+    assert isinstance(field.child, serializers.CharField)
