@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://github.com/georgebv/drf-pydantic/actions/workflows/cicd.yml" target="_blank">
-    <img src="https://github.com/georgebv/drf-pydantic/actions/workflows/cicd.yml/badge.svg?branch=main" alt="CI/CD Status">
+  <a href="https://github.com/georgebv/drf-pydantic/actions/workflows/test.yml" target="_blank">
+    <img src="https://github.com/georgebv/drf-pydantic/actions/workflows/test.yml/badge.svg?event=pull_request" alt="Test Status">
   </a>
   <a href="https://codecov.io/gh/georgebv/drf-pydantic" target="_blank">
     <img src="https://codecov.io/gh/georgebv/drf-pydantic/branch/main/graph/badge.svg?token=GN9rxzIFMc" alt="Test Coverage"/>
