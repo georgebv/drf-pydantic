@@ -2,6 +2,7 @@ import datetime
 import typing
 
 import pydantic
+import pytest
 
 from rest_framework import serializers
 
@@ -212,11 +213,16 @@ def test_nested_model_only_last():
 
 
 def test_int_constraint():
-    class Person(BaseModel):
-        name: str
-        email: pydantic.EmailStr
-        age: int = pydantic.Field(ge=0, le=100)
-        salary: int = pydantic.Field(gt=0, lt=100)
+
+    with pytest.warns(UserWarning) as warninfo:
+
+        class Person(BaseModel):
+            name: str
+            email: pydantic.EmailStr
+            age: int = pydantic.Field(ge=0, le=100)
+            salary: int = pydantic.Field(gt=0, lt=100)
+
+        assert all("not supported by DRF" in str(wrn.message) for wrn in warninfo)
 
     serializer = Person.drf_serializer()
 
@@ -235,8 +241,8 @@ def test_int_constraint():
     assert isinstance(field, serializers.IntegerField)
     assert field.allow_null is False
     assert field.required is True
-    assert field.min_value == 1
-    assert field.max_value == 99
+    assert field.min_value == 0
+    assert field.max_value == 100
 
 
 def test_str_constraint():
@@ -268,6 +274,9 @@ def test_model_with_list_from_typing():
 
     assert isinstance(serializer, serializers.Serializer)
 
-    field: serializers.Field = serializer.fields["items"]
-    assert isinstance(field, serializers.ListField)
-    assert isinstance(field.child, serializers.CharField)
+    items_field: serializers.Field = serializer.fields["items"]
+    assert isinstance(items_field, serializers.ListField)
+    assert items_field.child.__class__.__name__ == "ItemSerializer"
+
+    name_field: serializers.Field = items_field.child.fields["name"]
+    assert isinstance(name_field, serializers.CharField)

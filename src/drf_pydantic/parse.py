@@ -4,6 +4,7 @@ import inspect
 import types
 import typing
 import uuid
+import warnings
 
 import pydantic
 
@@ -94,23 +95,33 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
     if field.allow_none:
         extra_kwargs["allow_null"] = True
         extra_kwargs["default"] = None
-    
-    #check if field._type is a subclass of ConstrainedNumberMeta
-    if issubclass(field.type_.__class__, pydantic.types.ConstrainedNumberMeta):
+
+    # Numeric field with constraints
+    if isinstance(field.type_, pydantic.types.ConstrainedNumberMeta):
         if field.type_.gt is not None:
-            extra_kwargs["min_value"] = field.type_.gt + 1
+            warnings.warn(
+                "gt (>) is not supported by DRF, using ge (>=) instead",
+                UserWarning,
+            )
+            extra_kwargs["min_value"] = field.type_.gt
         elif field.type_.ge is not None:
             extra_kwargs["min_value"] = field.type_.ge
         if field.type_.lt is not None:
-            extra_kwargs["max_value"] = field.type_.lt - 1
+            warnings.warn(
+                "lt (<) is not supported by DRF, using le (<=) instead",
+                UserWarning,
+            )
+            extra_kwargs["max_value"] = field.type_.lt
         elif field.type_.le is not None:
             extra_kwargs["max_value"] = field.type_.le
-    
-    #check if field._type is a subclass of ConstrainedStr
-    if inspect.isclass(field.type_) and issubclass(field.type_, pydantic.types.ConstrainedStr):
+
+    # String field with constraints
+    if inspect.isclass(field.type_) and issubclass(
+        field.type_, pydantic.types.ConstrainedStr
+    ):
         extra_kwargs["min_length"] = field.type_.min_length
         extra_kwargs["max_length"] = field.type_.max_length
-    
+
     # Scalar field
     if field.outer_type_ is field.type_:
         # Normal class
@@ -125,7 +136,13 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         raise NotImplementedError(f"{field.type_.__name__} is not yet supported")
 
     # Container field
-    assert isinstance(field.outer_type_, types.GenericAlias)
+    assert isinstance(
+        field.outer_type_,
+        (
+            types.GenericAlias,
+            getattr(typing, "_GenericAlias"),
+        ),
+    ), f"Unsupported container type '{field.outer_type_.__name__}'"
     if field.outer_type_.__origin__ is list or field.outer_type_.__origin__ is tuple:
         return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
     raise NotImplementedError(
