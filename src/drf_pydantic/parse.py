@@ -145,6 +145,8 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
     ), f"Unsupported container type '{field.outer_type_.__name__}'"
     if field.outer_type_.__origin__ is list or field.outer_type_.__origin__ is tuple:
         return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
+    if field.outer_type_._name == 'Dict':
+        return serializers.DictField(child=serializers.Field())
     raise NotImplementedError(
         f"Container type '{field.outer_type_.__origin__.__name__}' is not yet supported"
     )
