@@ -5,10 +5,12 @@ import types
 import typing
 import uuid
 import warnings
+from enum import Enum
 
 import pydantic
 
 from rest_framework import serializers
+from drf_pydantic.fields import EnumField
 
 # Cache serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and serializer classes
@@ -38,6 +40,8 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     # Constraint fields
     pydantic.ConstrainedStr: serializers.CharField,
     pydantic.ConstrainedInt: serializers.IntegerField,
+    # Enum fields
+    Enum: EnumField
 }
 
 
@@ -121,6 +125,11 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
     ):
         extra_kwargs["min_length"] = field.type_.min_length
         extra_kwargs["max_length"] = field.type_.max_length
+
+    if inspect.isclass(field.type_) and issubclass(
+        field.type_, Enum
+    ):
+        extra_kwargs['enum'] = field.type_
 
     # Scalar field
     if field.outer_type_ is field.type_:
