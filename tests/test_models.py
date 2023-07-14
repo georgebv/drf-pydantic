@@ -373,16 +373,16 @@ def test_enum_value(fail):
     normal_serializer = serializer(data={'sex': SexEnum.MALE, 'age': 25})
 
     assert normal_serializer.is_valid()
-    assert normal_serializer.validated_data['sex'] == 'male'
+    assert normal_serializer.validated_data['sex'] == SexEnum.MALE
     assert normal_serializer.validated_data['age'] == 25
 
     value_serializer = serializer(data={'sex': 'male', 'age': 25})
 
     assert value_serializer.is_valid()
-    assert value_serializer.validated_data['sex'] == 'male'
+    assert value_serializer.validated_data['sex'] == SexEnum.MALE
     assert value_serializer.validated_data['age'] == 25
 
     bad_value_serializer = serializer(data={'sex': 'bad_value', 'age': 25})
 
     assert bad_value_serializer.is_valid(raise_exception=False) is False
-    fail.assert_called_once_with('invalid_choice')
+    fail.assert_called_once_with('invalid')

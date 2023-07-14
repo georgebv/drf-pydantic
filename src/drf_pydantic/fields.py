@@ -9,6 +9,7 @@ class EnumField(ChoiceField):
     """
     Custom DRF field that restricts accepted values to that of a defined enum
     """
+    default_error_messages = {'invalid': 'No matching enum type'}
 
     def __init__(self, enum: Type[Enum], **kwargs):
         self.enum = enum
@@ -24,21 +25,28 @@ class EnumField(ChoiceField):
                     break
 
             if not match_found:
-                self.fail('invalid_choice')
+                self.fail('invalid')
 
         return super().run_validation(data)
 
     def to_internal_value(self, data):
-        if data is None:
-            return data
-
-        if not isinstance(data, self.enum):
-            data = self.enum(data)
-
-        return data.value
+        for choice in self.enum:
+            if choice == data or choice.name == data or choice.value == data:
+                return choice
+        self.fail('invalid')
+        # if data is None:
+        #     return data
+        #
+        # if not isinstance(data, self.enum):
+        #     try:
+        #         data = self.enum(data)
+        #     except ValueError:
+        #         return None
+        #
+        # return data.value
 
     def to_representation(self, value):
-        if value is None:
-            return value
+        if isinstance(value, self.enum):
+            return value.value
 
-        return self.enum(value)
+        return value
