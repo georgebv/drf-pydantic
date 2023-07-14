@@ -1,11 +1,13 @@
 import datetime
 import typing
 from enum import Enum
+from unittest.mock import patch
 
 import pydantic
 import pytest
 
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from drf_pydantic import BaseModel
 from drf_pydantic.fields import EnumField
@@ -351,7 +353,12 @@ def test_enum_model():
     assert field.choices == dict([(x, x.name) for x in CountryEnum])
 
 
-def test_enum_value():
+@patch(
+    'drf_pydantic.fields.EnumField.fail',
+    side_effect=ValidationError("bad_value is not a valid choice.")
+)
+def test_enum_value(fail):
+
     class SexEnum(Enum):
         MALE = 'male'
         FEMALE = 'female'
@@ -374,3 +381,8 @@ def test_enum_value():
     assert value_serializer.is_valid()
     assert value_serializer.validated_data['sex'] == 'male'
     assert value_serializer.validated_data['age'] == 25
+
+    bad_value_serializer = serializer(data={'sex': 'bad_value', 'age': 25})
+
+    assert bad_value_serializer.is_valid(raise_exception=False) is False
+    fail.assert_called_once_with('invalid_choice')
