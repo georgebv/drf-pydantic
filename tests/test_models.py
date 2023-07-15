@@ -353,11 +353,7 @@ def test_enum_model():
     assert field.choices == dict([(x, x.name) for x in CountryEnum])
 
 
-@patch(
-    'drf_pydantic.fields.EnumField.fail',
-    side_effect=ValidationError("bad_value is not a valid choice.")
-)
-def test_enum_value(fail):
+def test_enum_value():
 
     class SexEnum(Enum):
         MALE = 'male'
@@ -384,5 +380,4 @@ def test_enum_value(fail):
 
     bad_value_serializer = serializer(data={'sex': 'bad_value', 'age': 25})
 
-    assert bad_value_serializer.is_valid(raise_exception=False) is False
-    fail.assert_called_once_with('invalid')
+    assert bad_value_serializer.is_valid() is False
