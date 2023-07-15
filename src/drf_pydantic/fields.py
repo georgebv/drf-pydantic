@@ -32,13 +32,13 @@ class EnumField(ChoiceField):
 
         return super().run_validation(data)
 
-    def to_internal_value(self, data: Optional[Union[Enum, str]]):
+    def to_internal_value(self, data: Optional[Union[Enum, str]]) -> Enum:
         for choice in self.enum:
             if choice == data or choice.name == data or choice.value == data:
                 return choice
         self.fail("invalid")
 
-    def to_representation(self, value: Optional[Union[Enum, str]]):
+    def to_representation(self, value: Optional[Union[Enum, str]]) -> Optional[str]:
         if isinstance(value, self.enum):
             return value.value
 
