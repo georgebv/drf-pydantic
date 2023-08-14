@@ -41,7 +41,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     pydantic.ConstrainedStr: serializers.CharField,
     pydantic.ConstrainedInt: serializers.IntegerField,
     # Enum fields
-    Enum: EnumField
+    Enum: EnumField,
 }
 
 
@@ -94,9 +94,12 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         extra_kwargs["required"] = True
     else:
         extra_kwargs["required"] = field.required
+    if field.field_info.extra.get("allow_blank") is not None:
+        extra_kwargs["allow_blank"] = field.field_info.extra.get("allow_blank")
     if field.default is not None:
         extra_kwargs["default"] = field.default
-        if field.default == '':
+        # If the default value is blank then we must set allow_blank to True
+        if field.default == "":
             extra_kwargs["allow_blank"] = True
     if field.allow_none:
         extra_kwargs["allow_null"] = True
@@ -128,10 +131,8 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         extra_kwargs["min_length"] = field.type_.min_length
         extra_kwargs["max_length"] = field.type_.max_length
 
-    if inspect.isclass(field.type_) and issubclass(
-        field.type_, Enum
-    ):
-        extra_kwargs['enum'] = field.type_
+    if inspect.isclass(field.type_) and issubclass(field.type_, Enum):
+        extra_kwargs["enum"] = field.type_
 
     # Scalar field
     if field.outer_type_ is field.type_:

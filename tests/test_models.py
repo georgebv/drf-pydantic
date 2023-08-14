@@ -386,29 +386,49 @@ def test_enum_value():
 def test_allow_blank():
     class Human(BaseModel):
         name: str
-        bio: str = Field(default="")
+        bio: str = Field(
+            default="",
+        )
+        address: str = Field(allow_blank=True)
+        town: str = Field(allow_blank=False)
         age: int
 
     serializer = Human.drf_serializer()
 
     assert isinstance(serializer.fields["name"], serializers.CharField)
     assert isinstance(serializer.fields["bio"], serializers.CharField)
+    assert isinstance(serializer.fields["address"], serializers.CharField)
+    assert isinstance(serializer.fields["town"], serializers.CharField)
     assert isinstance(serializer.fields["age"], serializers.IntegerField)
-    assert not serializer.fields["name"].allow_blank
+    assert serializer.fields["name"].allow_blank is False
+    assert serializer.fields["town"].allow_blank is False
     assert serializer.fields["bio"].allow_blank
+    assert serializer.fields["address"].allow_blank
 
-    blank_serializer = Human.drf_serializer(data={"name": "Bob", "bio": "", "age": 25})
+    blank_serializer = Human.drf_serializer(
+        data={"name": "Bob", "bio": "", "address": "", "town": "somewhere", "age": 25}
+    )
 
     assert blank_serializer.is_valid()
     assert blank_serializer.validated_data["name"] == "Bob"
     assert blank_serializer.validated_data["bio"] == ""
+    assert blank_serializer.validated_data["address"] == ""
+    assert blank_serializer.validated_data["town"] == "somewhere"
     assert blank_serializer.validated_data["age"] == 25
 
     value_serializer = Human.drf_serializer(
-        data={"name": "Bob", "bio": "This is my bio", "age": 25}
+        data={
+            "name": "Bob",
+            "bio": "This is my bio",
+            "address": "1234, some road",
+            "town": "somewhere",
+            "age": 25,
+        }
     )
 
     assert value_serializer.is_valid()
     assert value_serializer.validated_data["name"] == "Bob"
     assert value_serializer.validated_data["bio"] == "This is my bio"
+    assert value_serializer.validated_data["address"] == "1234, some road"
+    assert value_serializer.validated_data["town"] == "somewhere"
     assert value_serializer.validated_data["age"] == 25
