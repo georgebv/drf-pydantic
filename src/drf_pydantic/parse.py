@@ -96,6 +96,8 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         extra_kwargs["required"] = field.required
     if field.default is not None:
         extra_kwargs["default"] = field.default
+        if field.default == '':
+            extra_kwargs["allow_blank"] = True
     if field.allow_none:
         extra_kwargs["allow_null"] = True
         extra_kwargs["default"] = None

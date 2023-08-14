@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pydantic
 import pytest
+from pydantic import Field
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -288,14 +289,14 @@ def test_model_with_list_from_typing():
 
 def test_enum_model():
     class CountryEnum(Enum):
-        US = 'US'
-        GB = 'GB'
-        FR = 'FR'
+        US = "US"
+        GB = "GB"
+        FR = "FR"
 
     class NotificationPreferenceEnum(Enum):
-        NONE = 'no_notifications'
-        SOME = 'some_notifications'
-        ALL = 'all_notifications'
+        NONE = "no_notifications"
+        SOME = "some_notifications"
+        ALL = "all_notifications"
 
     class Person(BaseModel):
         name: str
@@ -325,13 +326,13 @@ def test_enum_model():
         "age",
         "height",
         "date_of_birth",
-        "notification_preferences"
+        "notification_preferences",
     ]:
         field = serializer.fields[name]
         assert field.required is True, name
         assert field.default is serializers.empty, name
         assert field.allow_null is False, name
-        if name == 'notification_preferences':
+        if name == "notification_preferences":
             assert field.choices == dict(
                 [(x, x.name) for x in NotificationPreferenceEnum]
             )
@@ -354,11 +355,10 @@ def test_enum_model():
 
 
 def test_enum_value():
-
     class SexEnum(Enum):
-        MALE = 'male'
-        FEMALE = 'female'
-        OTHER = 'other'
+        MALE = "male"
+        FEMALE = "female"
+        OTHER = "other"
 
     class Human(BaseModel):
         sex: SexEnum
@@ -366,18 +366,49 @@ def test_enum_value():
 
     serializer = Human.drf_serializer
 
-    normal_serializer = serializer(data={'sex': SexEnum.MALE, 'age': 25})
+    normal_serializer = serializer(data={"sex": SexEnum.MALE, "age": 25})
 
     assert normal_serializer.is_valid()
-    assert normal_serializer.validated_data['sex'] == SexEnum.MALE
-    assert normal_serializer.validated_data['age'] == 25
+    assert normal_serializer.validated_data["sex"] == SexEnum.MALE
+    assert normal_serializer.validated_data["age"] == 25
 
-    value_serializer = serializer(data={'sex': 'male', 'age': 25})
+    value_serializer = serializer(data={"sex": "male", "age": 25})
 
     assert value_serializer.is_valid()
-    assert value_serializer.validated_data['sex'] == SexEnum.MALE
-    assert value_serializer.validated_data['age'] == 25
+    assert value_serializer.validated_data["sex"] == SexEnum.MALE
+    assert value_serializer.validated_data["age"] == 25
 
-    bad_value_serializer = serializer(data={'sex': 'bad_value', 'age': 25})
+    bad_value_serializer = serializer(data={"sex": "bad_value", "age": 25})
 
     assert bad_value_serializer.is_valid() is False
+
+
+def test_allow_blank():
+    class Human(BaseModel):
+        name: str
+        bio: str = Field(default="")
+        age: int
+
+    serializer = Human.drf_serializer()
+
+    assert isinstance(serializer.fields["name"], serializers.CharField)
+    assert isinstance(serializer.fields["bio"], serializers.CharField)
+    assert isinstance(serializer.fields["age"], serializers.IntegerField)
+    assert not serializer.fields["name"].allow_blank
+    assert serializer.fields["bio"].allow_blank
+
+    blank_serializer = Human.drf_serializer(data={"name": "Bob", "bio": "", "age": 25})
+
+    assert blank_serializer.is_valid()
+    assert blank_serializer.validated_data["name"] == "Bob"
+    assert blank_serializer.validated_data["bio"] == ""
+    assert blank_serializer.validated_data["age"] == 25
+
+    value_serializer = Human.drf_serializer(
+        data={"name": "Bob", "bio": "This is my bio", "age": 25}
+    )
+
+    assert value_serializer.is_valid()
+    assert value_serializer.validated_data["name"] == "Bob"
+    assert value_serializer.validated_data["bio"] == "This is my bio"
+    assert value_serializer.validated_data["age"] == 25
