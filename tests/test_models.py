@@ -386,9 +386,7 @@ def test_enum_value():
 def test_allow_blank():
     class Human(BaseModel):
         name: str
-        bio: str = Field(
-            default="",
-        )
+        bio: str = ""
         address: str = Field(allow_blank=True)
         town: str = Field(allow_blank=False)
         age: int
@@ -403,6 +401,7 @@ def test_allow_blank():
     assert serializer.fields["name"].allow_blank is False
     assert serializer.fields["town"].allow_blank is False
     assert serializer.fields["bio"].allow_blank
+    assert serializer.fields["bio"].default == ""
     assert serializer.fields["address"].allow_blank
 
     blank_serializer = Human.drf_serializer(

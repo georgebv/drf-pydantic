@@ -62,15 +62,15 @@ MyModel.drf_serializer
 ```
 
 > ℹ️ **INFO**<br>
-> Models created using `drf_pydantic` are fully idenditcal to those created by
+> Models created using `drf_pydantic` are fully identical to those created by
 > `pydantic`. The only change is the addition of the `drf_serializer` attribute
 > during class creation (not instance).
 
 ## Existing Models
 
-If you have an existing code base and you would like to use the `drf_serializer`
+If you have an existing code base, and you would like to use the `drf_serializer`
 attribute to only specific models, then great news 🥳 - you can easily extend
-your existign `pydantic` models by adding `drf_pydantic.BaseModel` to the list
+your existing `pydantic` models by adding `drf_pydantic.BaseModel` to the list
 of parent classes.
 
 Your existing pydantic models:
