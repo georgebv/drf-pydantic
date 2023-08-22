@@ -94,13 +94,8 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         extra_kwargs["required"] = True
     else:
         extra_kwargs["required"] = field.required
-    if field.field_info.extra.get("allow_blank") is not None:
-        extra_kwargs["allow_blank"] = field.field_info.extra.get("allow_blank")
     if field.default is not None:
         extra_kwargs["default"] = field.default
-        # If the default value is blank then we must set allow_blank to True
-        if field.default == "":
-            extra_kwargs["allow_blank"] = True
     if field.allow_none:
         extra_kwargs["allow_null"] = True
         extra_kwargs["default"] = None
@@ -125,11 +120,21 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
             extra_kwargs["max_value"] = field.type_.le
 
     # String field with constraints
-    if inspect.isclass(field.type_) and issubclass(
-        field.type_, pydantic.types.ConstrainedStr
-    ):
-        extra_kwargs["min_length"] = field.type_.min_length
-        extra_kwargs["max_length"] = field.type_.max_length
+    if inspect.isclass(field.type_) and issubclass(field.type_, str):
+
+        # If allow_blank is provided in the field extra dict then add it to extra_kwargs
+        if field.field_info.extra.get("allow_blank") is not None:
+            extra_kwargs["allow_blank"] = field.field_info.extra.get("allow_blank")
+
+        # If an empty string was provided as the default then make sure allow_blank is
+        # True
+        if field.default == "":
+            extra_kwargs["allow_blank"] = True
+
+        # With constraints
+        if issubclass(field.type_, pydantic.types.ConstrainedStr):
+            extra_kwargs["min_length"] = field.type_.min_length
+            extra_kwargs["max_length"] = field.type_.max_length
 
     if inspect.isclass(field.type_) and issubclass(field.type_, Enum):
         extra_kwargs["enum"] = field.type_

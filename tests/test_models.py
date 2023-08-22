@@ -1,11 +1,9 @@
 import datetime
 import typing
 from enum import Enum
-from unittest.mock import patch
 
 import pydantic
 import pytest
-from pydantic import Field
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -385,10 +383,10 @@ def test_enum_value():
 
 def test_allow_blank():
     class Human(BaseModel):
-        name: str
+        name: str = pydantic.Field(min_length=3, max_length=10)
         bio: str = ""
-        address: str = Field(allow_blank=True)
-        town: str = Field(allow_blank=False)
+        address: str = pydantic.Field(allow_blank=True)
+        town: str = pydantic.Field(allow_blank=False)
         age: int
 
     serializer = Human.drf_serializer()
@@ -402,7 +400,7 @@ def test_allow_blank():
     assert serializer.fields["town"].allow_blank is False
     assert serializer.fields["bio"].allow_blank
     assert serializer.fields["bio"].default == ""
-    assert serializer.fields["address"].allow_blank
+    assert serializer.fields["address"].allow_blank is True
 
     blank_serializer = Human.drf_serializer(
         data={"name": "Bob", "bio": "", "address": "", "town": "somewhere", "age": 25}
@@ -431,3 +429,15 @@ def test_allow_blank():
     assert value_serializer.validated_data["address"] == "1234, some road"
     assert value_serializer.validated_data["town"] == "somewhere"
     assert value_serializer.validated_data["age"] == 25
+
+    bad_value_serializer = Human.drf_serializer(
+        data={
+            "name": "Bob",
+            "bio": "This is my bio",
+            "address": "1234, some road",
+            "town": "",
+            "age": 25,
+        }
+    )
+
+    assert bad_value_serializer.is_valid() is False
