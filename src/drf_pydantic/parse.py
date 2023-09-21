@@ -10,7 +10,7 @@ from enum import Enum
 import pydantic
 
 from rest_framework import serializers
-from drf_pydantic.fields import EnumField
+from drf_pydantic.fields import EnumField, UnionField
 
 # Cache serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and serializer classes
@@ -138,11 +138,16 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
             return _convert_type(field.type_)(**extra_kwargs)
 
         # Alias
-        if field.type_.__origin__ is typing.Literal:
+        if typing.get_origin(field.type_) is typing.Literal:
             choices = field.type_.__args__
             assert all(isinstance(choice, str) for choice in choices)
             return serializers.ChoiceField(choices=choices, **extra_kwargs)
-        raise NotImplementedError(f"{field.type_.__name__} is not yet supported")
+
+        # Union types (only supported for scalar options)
+        if type(field.type_) is types.UnionType:
+            return UnionField(types=typing.get_args(field.type_))
+
+        raise NotImplementedError(f"'{repr(field.type_)}' is not yet supported")
 
     # Container field
     assert isinstance(
@@ -152,10 +157,10 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
             getattr(typing, "_GenericAlias"),
         ),
     ), f"Unsupported container type '{field.outer_type_.__name__}'"
-    if field.outer_type_.__origin__ is list or field.outer_type_.__origin__ is tuple:
+    if typing.get_origin(field.outer_type_) is list or typing.get_origin(field.outer_type_) is tuple:
         return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
     raise NotImplementedError(
-        f"Container type '{field.outer_type_.__origin__.__name__}' is not yet supported"
+        f"Container type '{typing.getorigin(field.outer_type_).__name__}' is not yet supported"
     )
 
 

@@ -381,3 +381,36 @@ def test_enum_value():
     bad_value_serializer = serializer(data={'sex': 'bad_value', 'age': 25})
 
     assert bad_value_serializer.is_valid() is False
+
+
+def test_union_value():
+
+    class ModelWithUnions(BaseModel):
+        number: int | float
+        number_opt: int | float | None
+
+    serializer = ModelWithUnions.drf_serializer
+
+    normal_serializer = serializer(data={'number': 10, 'number_opt': None})
+
+    assert normal_serializer.is_valid()
+    assert normal_serializer.validated_data['number'] == 10
+    assert normal_serializer.validated_data['number_opt'] == None
+
+    value_serializer = serializer(data={'number': 10, 'number_opt': None})
+
+    assert value_serializer.is_valid()
+    assert value_serializer.validated_data['number'] == 10
+    assert value_serializer.validated_data['number_opt'] == None
+
+    bad_value_serializer = serializer(data={'number': None, 'number_opt': 'foo'})
+
+    assert bad_value_serializer.is_valid() is False
+
+
+def test_union_value_failure():
+    """test case of non-scalar field definition"""
+
+    with pytest.raises(ValueError):
+        class ModelWithUnions(BaseModel):
+            bad: int | float | list[int]
