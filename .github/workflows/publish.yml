@@ -7,7 +7,12 @@ on:
       - "created"
 
 jobs:
+  test:
+    name: Test
+    uses: ./.github/actions/test.yml
   publish:
+    name: Publish to PyPI
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: PyPI

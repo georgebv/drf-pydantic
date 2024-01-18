@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drf-pydantic"
-version = "1.0.0"
+version = "2.0.0"
 description = "Use pydantic with the Django REST framework"
 license = "MIT"
 authors = ["George Bocharov <bocharovgeorgii@gmail.com>"]
@@ -27,25 +27,71 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pydantic = {extras = ["email"], version = "^1.9.0"}
+pydantic = {extras = ["email"], version = "^2.0.0"}
 djangorestframework = "^3.13.0"
 
-[tool.poetry.dev-dependencies]
-mypy = "^0.971"
-black = "^22.8.0"
-isort = "^5.10.1"
-pylint = "^2.15.0"
-flake8 = "^5.0.4"
-pytest = "^7.1.2"
-pytest-cov = "^3.0.0"
+[tool.poetry.group.development.dependencies]
+pre-commit = "^3.6.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.4"
+pytest-cov = "^4.1.0"
+
+[tool.poetry.group.lint.dependencies]
+ruff = "^0.1.13"
+mypy = "^1.8.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.isort]
-profile = "black"
-lines_between_types = 1
+[tool.ruff]
+# https://docs.astral.sh/ruff/rules
+select = [
+    # Pyflakes
+    "F",
+    # pycodestyle
+    "E",
+    # pep8-naming
+    "N",
+    # flake8-bandit
+    "S",
+    # flake8-comprehensions
+    "C4",
+    # flake8-logging-format
+    "G",
+    # flake8-print
+    "T20",
+    # flake8-use-pathlib
+    "PTH",
+    # Pylint
+    "PL",
+    # Ruff-specific rules
+    "RUF",
+]
+ignore = [
+    # Bandit: assert statement
+    "S101",
+    # `subprocess` call: check for execution of untrusted input
+    "S603", "S607",
+    # `open()` should be replaced by `Path.open()`
+    "PTH123",
+    # Magic value used in comparison
+    "PLR2004",
+    # Too many branches
+    "PLR0912",
+    # Too many arguments
+    "PLR0913",
+    # Too many statements
+    "PLR0915",
+    # Mutable class attributes should be annotated with `typing.ClassVar`
+    "RUF012",
+    # line too long
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
 
 [tool.pytest.ini_options]
 addopts = "-v --cov=drf_pydantic --cov-report=term --cov-report=xml --cov-report=html"
@@ -66,19 +112,3 @@ fail_under = 90
 precision = 1
 skip_empty = true
 sort = "-Cover"
-
-[tool.pylint.'MASTER']
-fail-under = 8.0
-extension-pkg-allow-list = "pydantic"
-
-[tool.pylint.'MESSAGES CONTROL']
-disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "too-few-public-methods",
-    "useless-super-delegation",
-    "bad-mcs-classmethod-argument",
-]
-
-[tool.pylint.'FORMAT']
-max-line-length = 88

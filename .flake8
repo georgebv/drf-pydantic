@@ -1,5 +1,0 @@
-[flake8]
-ignore =
-    E501,  # line too long (we have to break this to preserve long links)
-    E203,  # whitespace before ':' (ignore to stay compatible with black)
-max-line-length = 88
