@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: Test
-    uses: ./.github/actions/test.yml
+    uses: ./.github/workflows/test.yml
   publish:
     name: Publish to PyPI
     needs: test
