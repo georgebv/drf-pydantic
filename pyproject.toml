@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drf-pydantic"
-version = "0.5.0"
+version = "1.0.0"
 description = "Use pydantic with the Django REST framework"
 license = "MIT"
 authors = ["George Bocharov <bocharovgeorgii@gmail.com>"]
