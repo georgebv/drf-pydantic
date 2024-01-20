@@ -130,6 +130,6 @@ Block.drf_serializer
 
 # Roadmap
 
-- Add `ENUM` support
+- Add support for custom field types (both for pydantic and DRF)
 - Add option to create custom serializer for complex models
 - Add support for constraints (max, min, regex, etc.)

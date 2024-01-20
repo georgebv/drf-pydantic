@@ -1,16 +1,16 @@
 import datetime
 import decimal
 import inspect
-import types
 import typing
 import uuid
-import warnings
-from enum import Enum
 
 import pydantic
+import pydantic.fields
 
+from pydantic_core import PydanticUndefined
 from rest_framework import serializers
-from drf_pydantic.fields import EnumField
+
+from .utils import get_union_members, is_scalar
 
 # Cache serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and serializer classes
@@ -37,16 +37,11 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     datetime.time: serializers.TimeField,
     datetime.datetime: serializers.DateTimeField,
     datetime.timedelta: serializers.DurationField,
-    # Constraint fields
-    pydantic.ConstrainedStr: serializers.CharField,
-    pydantic.ConstrainedInt: serializers.IntegerField,
-    # Enum fields
-    Enum: EnumField
 }
 
 
 def create_serializer_from_model(
-    model_class: type[pydantic.BaseModel],
+    model_class: typing.Type[pydantic.BaseModel],
 ) -> type[serializers.Serializer]:
     """
     Create serializer from a pydantic model.
@@ -64,8 +59,8 @@ def create_serializer_from_model(
     """
     if model_class not in SERIALIZER_REGISTRY:
         fields: dict[str, type[serializers.Field]] = {}
-        for field_name, field in model_class.__fields__.items():
-            fields[field_name] = _convert_field(field)
+        for field_name, field in model_class.model_fields.items():
+            fields[field_name] = _convert_field(field_name, field)
         SERIALIZER_REGISTRY[model_class] = type(
             f"{model_class.__name__}Serializer",
             (serializers.Serializer,),
@@ -74,13 +69,18 @@ def create_serializer_from_model(
     return SERIALIZER_REGISTRY[model_class]
 
 
-def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
+def _convert_field(
+    field_name: str,
+    field: pydantic.fields.FieldInfo,
+) -> serializers.Field:
     """
     Convert pydantic field to Django REST framework serializer field.
 
     Parameters
     ----------
-    field : pydantic.fields.ModelField
+    field_name : str
+        Field name.
+    field : pydantic.fields.FieldInfo
         Field to convert.
 
     Returns
@@ -89,77 +89,84 @@ def _convert_field(field: pydantic.fields.ModelField) -> serializers.Field:
         Django REST framework serializer field instance.
 
     """
-    extra_kwargs: dict[str, typing.Any] = {}
-    if isinstance(field.required, pydantic.fields.UndefinedType):
-        extra_kwargs["required"] = True
+    field_annotation = field.annotation
+    if field_annotation is None:
+        raise TypeError(f"Field '{field_name}' is missing type annotation")
+    field_union_members = get_union_members(field_annotation)
+    if (
+        field_union_members is not None
+        and len(field_union_members) > 2
+        and type(None) not in field_union_members
+    ):
+        raise TypeError(f"Union types are not supported. Field: '{field_name}'")
+
+    drf_field_kwargs: dict[str, typing.Any] = {
+        "required": field.is_required(),
+    }
+    _default_value = field.get_default(call_default_factory=True)
+    if _default_value is not PydanticUndefined:
+        drf_field_kwargs["default"] = _default_value
+    if field_union_members is not None and type(None) in field_union_members:
+        drf_field_kwargs["allow_null"] = True
+        field_annotation = [t for t in field_union_members if t is not type(None)][0]
     else:
-        extra_kwargs["required"] = field.required
-    if field.default is not None:
-        extra_kwargs["default"] = field.default
-    if field.allow_none:
-        extra_kwargs["allow_null"] = True
-        extra_kwargs["default"] = None
+        drf_field_kwargs["allow_null"] = False
 
-    # Numeric field with constraints
-    if isinstance(field.type_, pydantic.types.ConstrainedNumberMeta):
-        if field.type_.gt is not None:
-            warnings.warn(
-                "gt (>) is not supported by DRF, using ge (>=) instead",
-                UserWarning,
-            )
-            extra_kwargs["min_value"] = field.type_.gt
-        elif field.type_.ge is not None:
-            extra_kwargs["min_value"] = field.type_.ge
-        if field.type_.lt is not None:
-            warnings.warn(
-                "lt (<) is not supported by DRF, using le (<=) instead",
-                UserWarning,
-            )
-            extra_kwargs["max_value"] = field.type_.lt
-        elif field.type_.le is not None:
-            extra_kwargs["max_value"] = field.type_.le
+    # TODO Search field.metadata for constraints
+    # # Numeric field with constraints
+    # if isinstance(field_annotation, pydantic.types.ConstrainedNumberMeta):
+    #     if field.type_.gt is not None:
+    #         warnings.warn(
+    #             "gt (>) is not supported by DRF, using ge (>=) instead",
+    #             UserWarning,
+    #         )
+    #         drf_field_kwargs["min_value"] = field.type_.gt
+    #     elif field.type_.ge is not None:
+    #         drf_field_kwargs["min_value"] = field.type_.ge
+    #     if field.type_.lt is not None:
+    #         warnings.warn(
+    #             "lt (<) is not supported by DRF, using le (<=) instead",
+    #             UserWarning,
+    #         )
+    #         drf_field_kwargs["max_value"] = field.type_.lt
+    #     elif field.type_.le is not None:
+    #         drf_field_kwargs["max_value"] = field.type_.le
 
-    # String field with constraints
-    if inspect.isclass(field.type_) and issubclass(
-        field.type_, pydantic.types.ConstrainedStr
-    ):
-        extra_kwargs["min_length"] = field.type_.min_length
-        extra_kwargs["max_length"] = field.type_.max_length
-
-    if inspect.isclass(field.type_) and issubclass(
-        field.type_, Enum
-    ):
-        extra_kwargs['enum'] = field.type_
+    # TODO Search field.metadata for constraints
+    # # String field with constraints
+    # if inspect.isclass(field.type_) and issubclass(
+    #     field.type_, pydantic.types.ConstrainedStr
+    # ):
+    #     drf_field_kwargs["min_length"] = field.type_.min_length
+    #     drf_field_kwargs["max_length"] = field.type_.max_length
 
     # Scalar field
-    if field.outer_type_ is field.type_:
+    if is_scalar(field_annotation):
         # Normal class
-        if inspect.isclass(field.type_):
-            return _convert_type(field.type_)(**extra_kwargs)
+        if inspect.isclass(field_annotation):
+            return _convert_type(field_annotation)(**drf_field_kwargs)
 
         # Alias
-        if field.type_.__origin__ is typing.Literal:
-            choices = field.type_.__args__
+        if field_annotation.__origin__ is typing.Literal:
+            choices = field_annotation.__args__
             assert all(isinstance(choice, str) for choice in choices)
-            return serializers.ChoiceField(choices=choices, **extra_kwargs)
-        raise NotImplementedError(f"{field.type_.__name__} is not yet supported")
+            return serializers.ChoiceField(choices=choices, **drf_field_kwargs)
+
+        raise NotImplementedError(f"{field_annotation} is not yet supported")
 
     # Container field
-    assert isinstance(
-        field.outer_type_,
-        (
-            types.GenericAlias,
-            getattr(typing, "_GenericAlias"),
-        ),
-    ), f"Unsupported container type '{field.outer_type_.__name__}'"
-    if field.outer_type_.__origin__ is list or field.outer_type_.__origin__ is tuple:
-        return serializers.ListField(child=_convert_type(field.type_)(**extra_kwargs))
-    raise NotImplementedError(
-        f"Container type '{field.outer_type_.__origin__.__name__}' is not yet supported"
-    )
+    if (
+        field_annotation.__origin__ in [list, tuple]
+        and len(field_annotation.__args__) == 1
+        and is_scalar(field_annotation.__args__[0])
+    ):
+        return serializers.ListField(
+            child=_convert_type(field_annotation.__args__[0])(**drf_field_kwargs)
+        )
+    raise NotImplementedError(f"'{field_annotation}' is not yet supported")
 
 
-def _convert_type(type_: type) -> type[serializers.Field]:
+def _convert_type(type_: typing.Type) -> typing.Type[serializers.Field]:
     """
     Convert scalar type to serializer field class.
 
@@ -190,4 +197,4 @@ def _convert_type(type_: type) -> type[serializers.Field]:
             return FIELD_MAP[key]
         except KeyError:
             continue
-    raise NotImplementedError(f"{type_.__name__} is not yet supported")
+    raise NotImplementedError(f"{type_.__name__} is not supported")
