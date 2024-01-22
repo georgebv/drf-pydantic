@@ -10,8 +10,8 @@ import pydantic.fields
 from pydantic_core import PydanticUndefined, Url
 from rest_framework import serializers
 
-from .errors import FieldConversionError, ModelConversionError
-from .utils import get_union_members, is_scalar
+from drf_pydantic.errors import FieldConversionError, ModelConversionError
+from drf_pydantic.utils import get_union_members, is_scalar
 
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
@@ -85,6 +85,7 @@ def create_serializer_from_model(
                     ]
                 )
             )
+        assert len(fields) == len(pydantic_model.model_fields)
         SERIALIZER_REGISTRY[pydantic_model] = type(
             f"{pydantic_model.__name__}Serializer",
             (serializers.Serializer,),
@@ -119,8 +120,8 @@ def _convert_field(
         drf_field_kwargs["default"] = _default_value
 
     # Process constraints
+    regex_patterns: list[str] = []
     for item in field.metadata:
-        regex_patterns: list[str] = []
         if isinstance(item, pydantic.StringConstraints):
             drf_field_kwargs["min_length"] = (
                 max(
@@ -140,12 +141,12 @@ def _convert_field(
             )
             if item.pattern is not None:
                 regex_patterns.append(item.pattern)
-        if len(regex_patterns) > 1:
-            raise FieldConversionError(
-                f"Field has multiple regex patterns: {regex_patterns}"
-            )
-        elif len(regex_patterns) == 1:
-            return serializers.RegexField(regex=item.pattern, **drf_field_kwargs)
+    if len(regex_patterns) > 1:
+        raise FieldConversionError(
+            f"Field has multiple regex patterns: {regex_patterns}"
+        )
+    elif len(regex_patterns) == 1:
+        return serializers.RegexField(regex=item.pattern, **drf_field_kwargs)
 
     # TODO Search field.metadata for constraints
     # # Numeric field with constraints
@@ -213,9 +214,9 @@ def _convert_type(type_: typing.Type, **kwargs) -> serializers.Field:  # noqa: P
         # Nested model
         if issubclass(type_, pydantic.BaseModel):
             try:
-                return getattr(type_, "drf_serializer")
+                return getattr(type_, "drf_serializer")(**kwargs)
             except AttributeError:
-                return create_serializer_from_model(type_)
+                return create_serializer_from_model(type_)(**kwargs)
 
         # Normal class
         if inspect.isclass(type_):

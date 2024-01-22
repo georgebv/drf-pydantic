@@ -67,6 +67,21 @@ class TestScalar:
             pattern
         )
 
+    def test_multiple_regex_error(self):
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                phone_number: typing.Annotated[
+                    str,
+                    pydantic.StringConstraints(pattern=r"123"),
+                    pydantic.StringConstraints(pattern=r"456"),
+                ]
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "Field has multiple regex patterns" in str(exc_info.value)
+
     def test_url(self):
         class Person(BaseModel):
             website: pydantic.HttpUrl
