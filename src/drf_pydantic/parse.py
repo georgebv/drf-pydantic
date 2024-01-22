@@ -27,14 +27,14 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     # String fields
     str: serializers.CharField,
     pydantic.EmailStr: serializers.EmailField,
-    # TODO Regex field
+    # Regex implemented as a special case
     # WARN This is what pydantic converts pydantic.HttpUrl to
     Url: serializers.URLField,
     uuid.UUID: serializers.UUIDField,
     # Numeric fields
     int: serializers.IntegerField,
     float: serializers.FloatField,
-    decimal.Decimal: serializers.DecimalField,
+    # Decimal implemented as a special case
     # Date and time fields
     datetime.datetime: serializers.DateTimeField,
     datetime.date: serializers.DateField,
@@ -118,6 +118,35 @@ def _convert_field(
     if _default_value is not PydanticUndefined:
         drf_field_kwargs["default"] = _default_value
 
+    # Process constraints
+    for item in field.metadata:
+        regex_patterns: list[str] = []
+        if isinstance(item, pydantic.StringConstraints):
+            drf_field_kwargs["min_length"] = (
+                max(
+                    drf_field_kwargs.get("min_length", float("-inf")),
+                    item.min_length,
+                )
+                if item.min_length is not None
+                else drf_field_kwargs.get("min_length", None)
+            )
+            drf_field_kwargs["max_length"] = (
+                min(
+                    drf_field_kwargs.get("max_length", float("inf")),
+                    item.max_length,
+                )
+                if item.max_length is not None
+                else drf_field_kwargs.get("max_length", None)
+            )
+            if item.pattern is not None:
+                regex_patterns.append(item.pattern)
+        if len(regex_patterns) > 1:
+            raise FieldConversionError(
+                f"Field has multiple regex patterns: {regex_patterns}"
+            )
+        elif len(regex_patterns) == 1:
+            return serializers.RegexField(regex=item.pattern, **drf_field_kwargs)
+
     # TODO Search field.metadata for constraints
     # # Numeric field with constraints
     # if isinstance(field_annotation, pydantic.types.ConstrainedNumberMeta):
@@ -137,14 +166,6 @@ def _convert_field(
     #         drf_field_kwargs["max_value"] = field.type_.lt
     #     elif field.type_.le is not None:
     #         drf_field_kwargs["max_value"] = field.type_.le
-
-    # TODO Search field.metadata for constraints
-    # # String field with constraints
-    # if inspect.isclass(field.type_) and issubclass(
-    #     field.type_, pydantic.types.ConstrainedStr
-    # ):
-    #     drf_field_kwargs["min_length"] = field.type_.min_length
-    #     drf_field_kwargs["max_length"] = field.type_.max_length
 
     return _convert_type(field.annotation, **drf_field_kwargs)
 
@@ -202,11 +223,13 @@ def _convert_type(type_: typing.Type, **kwargs) -> serializers.Field:  # noqa: P
                 _context = decimal.getcontext()
                 kwargs["max_digits"] = _context.prec
                 kwargs["decimal_places"] = _context.prec
-            for key in [type_, type_.__base__]:
-                try:
-                    return FIELD_MAP[key](**kwargs)
-                except KeyError:
-                    continue
+                return serializers.DecimalField(**kwargs)
+            else:
+                for key in [type_, type_.__base__]:
+                    try:
+                        return FIELD_MAP[key](**kwargs)
+                    except KeyError:
+                        continue
 
         # TODO Enum
 

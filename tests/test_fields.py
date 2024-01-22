@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import re
 import sys
 import typing
 import uuid
@@ -29,6 +30,19 @@ class TestScalar:
 
         assert isinstance(serializer.fields["name"], serializers.CharField)
 
+    def test_constrained_string(self):
+        class Person(BaseModel):
+            name: typing.Annotated[
+                str,
+                pydantic.StringConstraints(min_length=3, max_length=10),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["name"], serializers.CharField)
+        assert serializer.fields["name"].min_length == 3
+        assert serializer.fields["name"].max_length == 10
+
     def test_email(self):
         class Person(BaseModel):
             email: pydantic.EmailStr
@@ -37,8 +51,6 @@ class TestScalar:
 
         assert isinstance(serializer.fields["email"], serializers.EmailField)
 
-    # TODO
-    @pytest.mark.skip(reason="Not implemented")
     def test_regex(self):
         pattern = r"^\+?[0-9]+$"
 
@@ -51,7 +63,9 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["phone_number"], serializers.RegexField)
-        assert serializer.fields["phone_number"].regex.pattern == pattern
+        assert serializer.fields["phone_number"].validators[-1].regex == re.compile(
+            pattern
+        )
 
     def test_url(self):
         class Person(BaseModel):
