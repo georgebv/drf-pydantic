@@ -1,25 +1,15 @@
-name: Publish to PyPI
+name: Lint
 
 on:
-  workflow_dispatch:
-  release:
-    types:
-      - "created"
+  workflow_call:
+  pull_request:
+    branches:
+      - "main"
 
 jobs:
   lint:
-    name: Lint
-    uses: ./.github/workflows/lint.yml
-  test:
-    name: Test
-    uses: ./.github/workflows/test.yml
-  publish:
-    name: Publish to PyPI
-    needs: [lint, test]
+    name: Lint with Ruff
     runs-on: ubuntu-latest
-    environment:
-      name: PyPI
-      url: https://pypi.org/project/drf-pydantic
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -43,5 +33,9 @@ jobs:
         run: |
           export PATH="~/.local/share/pypoetry/bin:$PATH"
           poetry install
-      - name: Publish
-        run: poetry publish --build --username __token__ --password ${{ secrets.PYPI_TOKEN }}
+      - name: Run Ruff linter
+        run: poetry run ruff check .
+      - name: Run Ruff import sorter
+        run: poetry run ruff check --select I .
+      - name: Run Ruff formatter
+        run: poetry run ruff format --check .

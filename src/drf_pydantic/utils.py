@@ -1,6 +1,7 @@
 from types import GenericAlias
 from typing import Optional, Type, Union, _GenericAlias, _UnionGenericAlias
 
+# Union syntax using pipe (e.g., int | str) is only available in Python 3.10+
 try:
     from types import UnionType
 except ImportError:
