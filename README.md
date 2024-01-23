@@ -30,9 +30,10 @@
 data serialization and validation.
 
 [Django REST framework](https://www.django-rest-framework.org) is a framework built
-on top of [Django](https://www.djangoproject.com/) which allows writing REST APIs.
+on top of [Django](https://www.djangoproject.com/) used to write REST APIs.
 
-If like me you develop DRF APIs and you like pydantic , `drf-pydantic` is for you 😍.
+If you develop DRF APIs and rely on pydantic for data validation/(de)serialization ,
+then `drf-pydantic` is for you 😍.
 
 # Installation
 
@@ -55,23 +56,36 @@ class MyModel(BaseModel):
   addresses: list[str]
 ```
 
+`MyModel.drf_serializer` would be equvalent to the following DRF Serializer class:
+
+```python
+class MyModelSerializer:
+    name = CharField(allow_null=False, required=True)
+    addresses = ListField(
+      allow_empty=True,
+      allow_null=False,
+      child=CharField(allow_null=False),
+      required=True,
+    )
+```
+
 Whenever you need a DRF serializer you can get it from the model like this:
 
 ```python
-MyModel.drf_serializer
+my_value = MyModel.drf_serializer(data={"name": "Van", addresses: ["Gym"]})
+my_value.is_valid(raise_exception=True)
 ```
 
 > ℹ️ **INFO**<br>
 > Models created using `drf_pydantic` are fully idenditcal to those created by
-> `pydantic`. The only change is the addition of the `drf_serializer` attribute
-> during class creation (not instance).
+> `pydantic`. The only change is the addition of the `drf_serializer` attribute.
 
 ## Existing Models
 
-If you have an existing code base and you would like to use the `drf_serializer`
-attribute to only specific models, then great news 🥳 - you can easily extend
-your existign `pydantic` models by adding `drf_pydantic.BaseModel` to the list
-of parent classes.
+If you have an existing code base and you would like to add the `drf_serializer`
+attribute only to some of your models, then I have great news 🥳 - you can easily
+extend your existing `pydantic` models by adding `drf_pydantic.BaseModel` to the list
+of parent classes of the model you want to extend.
 
 Your existing pydantic models:
 
@@ -108,7 +122,7 @@ Dog.drf_serializer
 
 If you have nested models and you want to generate serializer only from one of them,
 you don't have to update all models - only update the model you need, `drf_pydantic`
-will generate serializers for all normal nested `pydantic` models for free 🐱‍👤.
+will generate serializers for all normal nested `pydantic` models for free 🥷.
 
 ```python
 from drf_pydantic import BaseModel as DRFBaseModel
@@ -132,4 +146,3 @@ Block.drf_serializer
 
 - Add support for custom field types (both for pydantic and DRF)
 - Add option to create custom serializer for complex models
-- Add support for constraints (max, min, regex, etc.)
