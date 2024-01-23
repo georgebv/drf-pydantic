@@ -35,6 +35,10 @@ on top of [Django](https://www.djangoproject.com/) used to write REST APIs.
 If you develop DRF APIs and rely on pydantic for data validation/(de)serialization ,
 then `drf-pydantic` is for you 😍.
 
+> ℹ️ **INFO**<br>
+> `drf_pydantic` supports `pydantic` v2. Due to breaking API changes in `pydantic`
+> v2 support for `pydantic` v1 is available only in `drf_pydantic` 1.\*.\*.
+
 # Installation
 
 ```shell
