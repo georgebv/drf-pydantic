@@ -6,9 +6,9 @@ import uuid
 
 import pydantic
 import pydantic.fields
+import pydantic_core
 
-from pydantic_core import PydanticUndefined, Url
-from rest_framework import serializers
+from rest_framework import serializers  # type: ignore
 
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
@@ -27,14 +27,14 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     # String fields
     str: serializers.CharField,
     pydantic.EmailStr: serializers.EmailField,
-    # Regex implemented as a special case
-    # WARN This is what pydantic converts pydantic.HttpUrl to
-    Url: serializers.URLField,
+    # * Regex implemented as a special case
+    # WARN pydantic converts pydantic.HttpUrl to pydantic_core.Url
+    pydantic_core.Url: serializers.URLField,
     uuid.UUID: serializers.UUIDField,
     # Numeric fields
     int: serializers.IntegerField,
     float: serializers.FloatField,
-    # Decimal implemented as a special case
+    # * Decimal implemented as a special case
     # Date and time fields
     datetime.datetime: serializers.DateTimeField,
     datetime.date: serializers.DateField,
@@ -116,7 +116,7 @@ def _convert_field(
         "required": field.is_required(),
     }
     _default_value = field.get_default(call_default_factory=True)
-    if _default_value is not PydanticUndefined:
+    if _default_value is not pydantic_core.PydanticUndefined:
         drf_field_kwargs["default"] = _default_value
 
     # Process constraints
