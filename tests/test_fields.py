@@ -66,6 +66,24 @@ class TestScalar:
         assert serializer.fields["phone_number"].validators[-1].regex == re.compile(
             pattern
         )
+        assert serializer.fields["phone_number"].allow_null is False
+
+    def test_optional_regex(self):
+        pattern = r"^\+?[0-9]+$"
+
+        class Person(BaseModel):
+            phone_number: typing.Annotated[
+                typing.Optional[str],
+                pydantic.StringConstraints(pattern=pattern),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["phone_number"], serializers.RegexField)
+        assert serializer.fields["phone_number"].validators[-1].regex == re.compile(
+            pattern
+        )
+        assert serializer.fields["phone_number"].allow_null is True
 
     def test_multiple_regex_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -120,7 +138,39 @@ class TestScalar:
 
         serializer = Person.drf_serializer()
 
+        decimal_context = decimal.getcontext()
+
         assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == decimal_context.prec
+        assert serializer.fields["salary"].decimal_places == decimal_context.prec
+
+    def test_decimal_with_constraints(self):
+        class Person(BaseModel):
+            salary: typing.Annotated[
+                decimal.Decimal,
+                pydantic.Field(max_digits=420, decimal_places=69),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == 420
+        assert serializer.fields["salary"].decimal_places == 69
+
+    def test_decimal_with_conflicting_constraints_error(self):
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                salary: typing.Annotated[
+                    decimal.Decimal,
+                    pydantic.Field(max_digits=420, decimal_places=69),
+                    pydantic.Field(max_digits=69, decimal_places=420),
+                ]
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "Field has multiple max_digits or decimal_places" in str(exc_info.value)
 
     def test_datetime(self):
         class Person(BaseModel):

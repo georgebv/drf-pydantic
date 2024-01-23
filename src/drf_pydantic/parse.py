@@ -8,6 +8,7 @@ import pydantic
 import pydantic.fields
 import pydantic_core
 
+from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
@@ -120,7 +121,6 @@ def _convert_field(
         drf_field_kwargs["default"] = _default_value
 
     # Process constraints
-    regex_patterns: list[str] = []
     for item in field.metadata:
         if isinstance(item, pydantic.StringConstraints):
             drf_field_kwargs["min_length"] = (
@@ -139,14 +139,6 @@ def _convert_field(
                 if item.max_length is not None
                 else drf_field_kwargs.get("max_length", None)
             )
-            if item.pattern is not None:
-                regex_patterns.append(item.pattern)
-    if len(regex_patterns) > 1:
-        raise FieldConversionError(
-            f"Field has multiple regex patterns: {regex_patterns}"
-        )
-    elif len(regex_patterns) == 1:
-        return serializers.RegexField(regex=item.pattern, **drf_field_kwargs)
 
     # TODO Search field.metadata for constraints
     # # Numeric field with constraints
@@ -168,10 +160,14 @@ def _convert_field(
     #     elif field.type_.le is not None:
     #         drf_field_kwargs["max_value"] = field.type_.le
 
-    return _convert_type(field.annotation, **drf_field_kwargs)
+    return _convert_type(field.annotation, field, **drf_field_kwargs)
 
 
-def _convert_type(type_: typing.Type, **kwargs) -> serializers.Field:  # noqa: PLR0911
+def _convert_type(  # noqa: PLR0911
+    type_: typing.Type,
+    field: typing.Optional[pydantic.fields.FieldInfo] = None,
+    **kwargs,
+) -> serializers.Field:
     """
     Convert scalar type to serializer field class.
 
@@ -183,6 +179,8 @@ def _convert_type(type_: typing.Type, **kwargs) -> serializers.Field:  # noqa: P
     ----------
     type_ : type
         Field class.
+    field : typing.Optional[pydantic.fields.FieldInfo]
+        Pydantic field instance.
     kwargs : dict
         Additional keyword arguments used to instantiate the serializer Field class.
 
@@ -220,11 +218,50 @@ def _convert_type(type_: typing.Type, **kwargs) -> serializers.Field:  # noqa: P
 
         # Normal class
         if inspect.isclass(type_):
+            # Decimal
             if type_ is decimal.Decimal:
+                if field is not None:
+                    for item in field.metadata:
+                        if not isinstance(item, PydanticMetadata):
+                            continue  # pragma: no cover
+                        if (
+                            kwargs.get("max_digits", None) is not None
+                            and getattr(item, "max_digits", None) is not None
+                        ) or (
+                            kwargs.get("decimal_places", None) is not None
+                            and getattr(item, "decimal_places", None) is not None
+                        ):
+                            raise FieldConversionError(
+                                "Field has multiple max_digits or decimal_places "
+                                "conflicting constraints."
+                            )
+                        kwargs["max_digits"] = getattr(item, "max_digits", None)
+                        kwargs["decimal_places"] = getattr(item, "decimal_places", None)
                 _context = decimal.getcontext()
-                kwargs["max_digits"] = _context.prec
-                kwargs["decimal_places"] = _context.prec
+                kwargs["max_digits"] = kwargs.get("max_digits", None) or _context.prec
+                kwargs["decimal_places"] = (
+                    kwargs.get("decimal_places", None) or _context.prec
+                )
                 return serializers.DecimalField(**kwargs)
+            # Regex
+            elif field is not None and any(
+                isinstance(item, pydantic.StringConstraints)
+                and item.pattern is not None
+                for item in field.metadata
+            ):
+                regex_patterns: list[str] = []
+                for item in field.metadata:
+                    if (
+                        isinstance(item, pydantic.StringConstraints)
+                        and item.pattern is not None
+                    ):
+                        regex_patterns.append(item.pattern)
+                if len(regex_patterns) > 1:
+                    raise FieldConversionError(
+                        f"Field has multiple regex patterns: {regex_patterns}"
+                    )
+                elif len(regex_patterns) == 1:
+                    return serializers.RegexField(regex=item.pattern, **kwargs)
             else:
                 for key in [type_, type_.__base__]:
                     try:
