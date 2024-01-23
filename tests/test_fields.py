@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import enum
 import re
 import sys
 import typing
@@ -124,6 +125,7 @@ class TestScalar:
 
         assert isinstance(serializer.fields["age"], serializers.IntegerField)
 
+    @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
     def test_int_with_constraints(self):
         class Stock(BaseModel):
             price: typing.Annotated[
@@ -145,6 +147,7 @@ class TestScalar:
 
         assert isinstance(serializer.fields["height"], serializers.FloatField)
 
+    @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
     def test_float_with_constraints(self):
         class Person(BaseModel):
             height: typing.Annotated[
@@ -170,6 +173,7 @@ class TestScalar:
         assert serializer.fields["salary"].max_digits == decimal_context.prec
         assert serializer.fields["salary"].decimal_places == decimal_context.prec
 
+    @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
     def test_decimal_with_consraints(self):
         class Person(BaseModel):
             salary: typing.Annotated[
@@ -247,10 +251,18 @@ class TestScalar:
 
         assert isinstance(serializer.fields["duration"], serializers.DurationField)
 
-    # TODO
-    @pytest.mark.skip(reason="Not implemented")
     def test_enum(self):
-        ...
+        class Gender(enum.Enum):
+            MALE = 0
+            FEMALE = 1
+
+        class Person(BaseModel):
+            gender: Gender
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
+        assert serializer.fields["gender"].choices == {0: 0, 1: 1}
 
     # TODO
     @pytest.mark.skip(reason="Not implemented")

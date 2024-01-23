@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import enum
 import inspect
 import typing
 import uuid
@@ -285,7 +286,11 @@ def _convert_type(  # noqa: PLR0911
                     except KeyError:
                         continue
 
-        # TODO Enum
+        # Enum
+        if issubclass(type_, enum.Enum):
+            return serializers.ChoiceField(
+                choices=[item.value for item in type_], **kwargs
+            )
 
         # TODO Literal
         # if type_.__origin__ is typing.Literal:
