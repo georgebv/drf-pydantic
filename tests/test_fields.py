@@ -139,6 +139,64 @@ class TestScalar:
         assert serializer.fields["price"].min_value == 69
         assert serializer.fields["price"].max_value == 420
 
+    @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
+    def test_int_with_conflicting_constraints_errors(self):
+        with pytest.raises(ModelConversionError) as exc_info1:
+
+            class Stock1(BaseModel):
+                price: typing.Annotated[
+                    int,
+                    pydantic.Field(gt=69),
+                    pydantic.Field(ge=69),
+                ]
+
+        assert "Error when converting model: Stock1" in str(exc_info1.value)
+        assert "Field has multiple conflicting min_value constraints" in str(
+            exc_info1.value
+        )
+
+        with pytest.raises(ModelConversionError) as exc_info2:
+
+            class Stock2(BaseModel):
+                price: typing.Annotated[
+                    int,
+                    pydantic.Field(ge=69),
+                    pydantic.Field(gt=69),
+                ]
+
+        assert "Error when converting model: Stock2" in str(exc_info2.value)
+        assert "Field has multiple conflicting min_value constraints" in str(
+            exc_info2.value
+        )
+
+        with pytest.raises(ModelConversionError) as exc_info3:
+
+            class Stock3(BaseModel):
+                price: typing.Annotated[
+                    int,
+                    pydantic.Field(lt=69),
+                    pydantic.Field(le=69),
+                ]
+
+        assert "Error when converting model: Stock3" in str(exc_info3.value)
+        assert "Field has multiple conflicting max_value constraints" in str(
+            exc_info3.value
+        )
+
+        with pytest.raises(ModelConversionError) as exc_info4:
+
+            class Stock4(BaseModel):
+                price: typing.Annotated[
+                    int,
+                    pydantic.Field(le=69),
+                    pydantic.Field(lt=69),
+                ]
+
+        assert "Error when converting model: Stock4" in str(exc_info4.value)
+        assert "Field has multiple conflicting max_value constraints" in str(
+            exc_info4.value
+        )
+
     def test_float(self):
         class Person(BaseModel):
             height: float
