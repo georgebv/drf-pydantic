@@ -264,10 +264,18 @@ class TestScalar:
         assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
         assert serializer.fields["gender"].choices == {0: 0, 1: 1}
 
-    # TODO
-    @pytest.mark.skip(reason="Not implemented")
     def test_literal(self):
-        ...
+        class Employee(BaseModel):
+            department: typing.Literal["engineering", "sales", "marketing"]
+
+        serializer = Employee.drf_serializer()
+
+        assert isinstance(serializer.fields["department"], serializers.ChoiceField)
+        assert serializer.fields["department"].choices == {
+            "engineering": "engineering",
+            "sales": "sales",
+            "marketing": "marketing",
+        }
 
     def test_unsupported_type_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
