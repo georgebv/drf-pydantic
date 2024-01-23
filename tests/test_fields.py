@@ -192,6 +192,28 @@ class TestComposite:
 
         assert isinstance(serializer.fields["friends"], serializers.ListField)
         assert isinstance(serializer.fields["friends"].child, serializers.CharField)
+        assert serializer.fields["friends"].allow_null is False
+
+    def test_optional_list_with_optional(self):
+        class Person(BaseModel):
+            friends: typing.Optional[list[str]]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["friends"], serializers.ListField)
+        assert isinstance(serializer.fields["friends"].child, serializers.CharField)
+        assert serializer.fields["friends"].allow_null is True
+
+    @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
+    def test_optional_list_with_pipe(self):
+        class Person(BaseModel):
+            friends: list[str] | None  # type: ignore
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["friends"], serializers.ListField)
+        assert isinstance(serializer.fields["friends"].child, serializers.CharField)
+        assert serializer.fields["friends"].allow_null is True
 
     def test_tuple_with_ellipsis(self):
         class Person(BaseModel):
@@ -288,7 +310,7 @@ class TestUnion:
     @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
     def test_optional_type_with_pipe(self):
         class Person(BaseModel):
-            name: str | None
+            name: str | None  # type: ignore
 
         serializer = Person.drf_serializer()
 
