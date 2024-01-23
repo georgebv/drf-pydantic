@@ -292,12 +292,6 @@ def _convert_type(  # noqa: PLR0911
                 choices=[item.value for item in type_], **kwargs
             )
 
-        # TODO Literal
-        # if type_.__origin__ is typing.Literal:
-        #     choices = type_.__args__
-        #     assert all(isinstance(choice, str) for choice in choices)
-        #     return serializers.ChoiceField(choices=choices, **kwargs)
-
         raise FieldConversionError(f"{type_.__name__} is not a supported scalar type")
 
     # Composite field
@@ -349,6 +343,8 @@ def _convert_type(  # noqa: PLR0911
             allow_empty=True,
             **kwargs,
         )
+    elif type_.__origin__ is typing.Literal:
+        return serializers.ChoiceField(choices=type_.__args__, **kwargs)
     else:
         raise FieldConversionError(
             f"{type_.__origin__.__name__} is not a supported composite type"
