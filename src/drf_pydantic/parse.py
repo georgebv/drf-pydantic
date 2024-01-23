@@ -3,7 +3,9 @@ import decimal
 import inspect
 import typing
 import uuid
+import warnings
 
+import annotated_types
 import pydantic
 import pydantic.fields
 import pydantic_core
@@ -139,26 +141,57 @@ def _convert_field(
                 if item.max_length is not None
                 else drf_field_kwargs.get("max_length", None)
             )
-
-    # TODO Search field.metadata for constraints
-    # # Numeric field with constraints
-    # if isinstance(field_annotation, pydantic.types.ConstrainedNumberMeta):
-    #     if field.type_.gt is not None:
-    #         warnings.warn(
-    #             "gt (>) is not supported by DRF, using ge (>=) instead",
-    #             UserWarning,
-    #         )
-    #         drf_field_kwargs["min_value"] = field.type_.gt
-    #     elif field.type_.ge is not None:
-    #         drf_field_kwargs["min_value"] = field.type_.ge
-    #     if field.type_.lt is not None:
-    #         warnings.warn(
-    #             "lt (<) is not supported by DRF, using le (<=) instead",
-    #             UserWarning,
-    #         )
-    #         drf_field_kwargs["max_value"] = field.type_.lt
-    #     elif field.type_.le is not None:
-    #         drf_field_kwargs["max_value"] = field.type_.le
+        # pydantic.Field constraints
+        elif isinstance(item, PydanticMetadata):
+            # Decimal constraints
+            if (
+                drf_field_kwargs.get("max_digits", None) is not None
+                and getattr(item, "max_digits", None) is not None
+            ) or (
+                drf_field_kwargs.get("decimal_places", None) is not None
+                and getattr(item, "decimal_places", None) is not None
+            ):
+                raise FieldConversionError(
+                    "Field has multiple max_digits or decimal_places "
+                    "conflicting constraints."
+                )
+            if getattr(item, "max_digits", None) is not None:
+                drf_field_kwargs["max_digits"] = getattr(item, "max_digits")
+            if getattr(item, "decimal_places", None) is not None:
+                drf_field_kwargs["decimal_places"] = getattr(item, "decimal_places")
+        # Numeric constraints
+        elif isinstance(item, annotated_types.Ge):
+            if drf_field_kwargs.get("min_value", None) is not None:
+                raise FieldConversionError(
+                    "Field has multiple conflicting min_value constraints"
+                )
+            drf_field_kwargs["min_value"] = item.ge
+        elif isinstance(item, annotated_types.Gt):
+            if drf_field_kwargs.get("min_value", None) is not None:
+                raise FieldConversionError(
+                    "Field has multiple conflicting min_value constraints"
+                )
+            warnings.warn(
+                "gt (>) is not supported by DRF, using ge (>=) instead",
+                UserWarning,
+            )
+            drf_field_kwargs["min_value"] = item.gt
+        elif isinstance(item, annotated_types.Le):
+            if drf_field_kwargs.get("max_value", None) is not None:
+                raise FieldConversionError(
+                    "Field has multiple conflicting max_value constraints"
+                )
+            drf_field_kwargs["max_value"] = item.le
+        elif isinstance(item, annotated_types.Lt):
+            if drf_field_kwargs.get("max_value", None) is not None:
+                raise FieldConversionError(
+                    "Field has multiple conflicting max_value constraints"
+                )
+            warnings.warn(
+                "lt (<) is not supported by DRF, using le (<=) instead",
+                UserWarning,
+            )
+            drf_field_kwargs["max_value"] = item.lt
 
     return _convert_type(field.annotation, field, **drf_field_kwargs)
 
@@ -220,23 +253,6 @@ def _convert_type(  # noqa: PLR0911
         if inspect.isclass(type_):
             # Decimal
             if type_ is decimal.Decimal:
-                if field is not None:
-                    for item in field.metadata:
-                        if not isinstance(item, PydanticMetadata):
-                            continue  # pragma: no cover
-                        if (
-                            kwargs.get("max_digits", None) is not None
-                            and getattr(item, "max_digits", None) is not None
-                        ) or (
-                            kwargs.get("decimal_places", None) is not None
-                            and getattr(item, "decimal_places", None) is not None
-                        ):
-                            raise FieldConversionError(
-                                "Field has multiple max_digits or decimal_places "
-                                "conflicting constraints."
-                            )
-                        kwargs["max_digits"] = getattr(item, "max_digits", None)
-                        kwargs["decimal_places"] = getattr(item, "decimal_places", None)
                 _context = decimal.getcontext()
                 kwargs["max_digits"] = kwargs.get("max_digits", None) or _context.prec
                 kwargs["decimal_places"] = (

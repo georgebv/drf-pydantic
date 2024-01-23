@@ -124,6 +124,19 @@ class TestScalar:
 
         assert isinstance(serializer.fields["age"], serializers.IntegerField)
 
+    def test_int_with_constraints(self):
+        class Stock(BaseModel):
+            price: typing.Annotated[
+                int,
+                pydantic.Field(gt=69, lt=420),
+            ]
+
+        serializer = Stock.drf_serializer()
+
+        assert isinstance(serializer.fields["price"], serializers.IntegerField)
+        assert serializer.fields["price"].min_value == 69
+        assert serializer.fields["price"].max_value == 420
+
     def test_float(self):
         class Person(BaseModel):
             height: float
@@ -131,6 +144,19 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["height"], serializers.FloatField)
+
+    def test_float_with_constraints(self):
+        class Person(BaseModel):
+            height: typing.Annotated[
+                float,
+                pydantic.Field(gt=69, lt=420),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["height"], serializers.FloatField)
+        assert serializer.fields["height"].min_value == 69
+        assert serializer.fields["height"].max_value == 420
 
     def test_decimal(self):
         class Person(BaseModel):
@@ -144,7 +170,24 @@ class TestScalar:
         assert serializer.fields["salary"].max_digits == decimal_context.prec
         assert serializer.fields["salary"].decimal_places == decimal_context.prec
 
-    def test_decimal_with_constraints(self):
+    def test_decimal_with_consraints(self):
+        class Person(BaseModel):
+            salary: typing.Annotated[
+                decimal.Decimal,
+                pydantic.Field(gt=69, lt=420),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        decimal_context = decimal.getcontext()
+
+        assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == decimal_context.prec
+        assert serializer.fields["salary"].decimal_places == decimal_context.prec
+        assert serializer.fields["salary"].min_value == 69
+        assert serializer.fields["salary"].max_value == 420
+
+    def test_decimal_with_digit_constraints(self):
         class Person(BaseModel):
             salary: typing.Annotated[
                 decimal.Decimal,
