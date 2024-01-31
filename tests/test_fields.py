@@ -88,7 +88,6 @@ class TestScalar:
 
     def test_multiple_regex_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class Person(BaseModel):
                 phone_number: typing.Annotated[
                     str,
@@ -142,7 +141,6 @@ class TestScalar:
     @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
     def test_int_with_conflicting_constraints_errors(self):
         with pytest.raises(ModelConversionError) as exc_info1:
-
             class Stock1(BaseModel):
                 price: typing.Annotated[
                     int,
@@ -156,7 +154,6 @@ class TestScalar:
         )
 
         with pytest.raises(ModelConversionError) as exc_info2:
-
             class Stock2(BaseModel):
                 price: typing.Annotated[
                     int,
@@ -170,7 +167,6 @@ class TestScalar:
         )
 
         with pytest.raises(ModelConversionError) as exc_info3:
-
             class Stock3(BaseModel):
                 price: typing.Annotated[
                     int,
@@ -184,7 +180,6 @@ class TestScalar:
         )
 
         with pytest.raises(ModelConversionError) as exc_info4:
-
             class Stock4(BaseModel):
                 price: typing.Annotated[
                     int,
@@ -264,7 +259,6 @@ class TestScalar:
 
     def test_decimal_with_conflicting_constraints_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class Person(BaseModel):
                 salary: typing.Annotated[
                     decimal.Decimal,
@@ -276,6 +270,14 @@ class TestScalar:
 
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "Field has multiple max_digits or decimal_places" in str(exc_info.value)
+
+    def test_dict(self):
+        class Person(BaseModel):
+            data: dict
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["data"], serializers.JSONField)
 
     def test_datetime(self):
         class Person(BaseModel):
@@ -337,7 +339,6 @@ class TestScalar:
 
     def test_unsupported_type_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class CustomType:
                 ...
 
@@ -406,7 +407,6 @@ class TestComposite:
 
     def test_tuple_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class Person(BaseModel):
                 friends: tuple[int, str]
 
@@ -426,7 +426,6 @@ class TestComposite:
 
     def test_dict_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class Person(BaseModel):
                 value: dict[int, str]
 
@@ -491,7 +490,6 @@ class TestUnion:
 
     def test_union_field_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
-
             class Person(BaseModel):
                 name: typing.Union[str, int]
 

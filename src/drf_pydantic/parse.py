@@ -44,6 +44,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     datetime.date: serializers.DateField,
     datetime.time: serializers.TimeField,
     datetime.timedelta: serializers.DurationField,
+    dict: serializers.JSONField,
 }
 
 
