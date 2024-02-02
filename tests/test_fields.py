@@ -8,6 +8,7 @@ import uuid
 
 import pydantic
 import pytest
+from pydantic import JsonValue
 
 from drf_pydantic import BaseModel
 from drf_pydantic.errors import ModelConversionError
@@ -277,9 +278,9 @@ class TestScalar:
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "Field has multiple max_digits or decimal_places" in str(exc_info.value)
 
-    def test_dict(self):
+    def test_json(self):
         class Person(BaseModel):
-            data: dict
+            data: JsonValue
 
         serializer = Person.drf_serializer()
 
