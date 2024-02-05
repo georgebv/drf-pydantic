@@ -10,8 +10,8 @@ import annotated_types
 import pydantic
 import pydantic.fields
 import pydantic_core
-from pydantic import JsonValue
 
+from pydantic import JsonValue
 from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 
