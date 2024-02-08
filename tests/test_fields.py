@@ -11,6 +11,7 @@ import pytest
 
 from drf_pydantic import BaseModel
 from drf_pydantic.errors import ModelConversionError
+from pydantic import ConfigDict, JsonValue
 from rest_framework import serializers
 
 
@@ -277,6 +278,14 @@ class TestScalar:
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "Field has multiple max_digits or decimal_places" in str(exc_info.value)
 
+    def test_json(self):
+        class Person(BaseModel):
+            data: JsonValue
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["data"], serializers.JSONField)
+
     def test_datetime(self):
         class Person(BaseModel):
             created_at: datetime.datetime
@@ -321,6 +330,21 @@ class TestScalar:
 
         assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
         assert serializer.fields["gender"].choices == {0: 0, 1: 1}
+
+    def test_deeply_inherited_types(self):
+        class CustomStr(str):
+            pass
+
+        class DeepCustomStr(CustomStr):
+            pass
+
+        class Person(BaseModel):
+            name: DeepCustomStr
+            model_config = ConfigDict(arbitrary_types_allowed=True)
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["name"], serializers.CharField)
 
     def test_literal(self):
         class Employee(BaseModel):

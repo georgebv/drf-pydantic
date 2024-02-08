@@ -11,6 +11,7 @@ import pydantic
 import pydantic.fields
 import pydantic_core
 
+from pydantic import JsonValue
 from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 
@@ -44,6 +45,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     datetime.date: serializers.DateField,
     datetime.time: serializers.TimeField,
     datetime.timedelta: serializers.DurationField,
+    JsonValue: serializers.JSONField,
 }
 
 
@@ -243,15 +245,14 @@ def _convert_type(  # noqa: PLR0911
 
     # Scalar field
     if is_scalar(type_):
-        # Nested model
-        if issubclass(type_, pydantic.BaseModel):
-            try:
-                return getattr(type_, "drf_serializer")(**kwargs)
-            except AttributeError:
-                return create_serializer_from_model(type_)(**kwargs)
-
-        # Normal class
         if inspect.isclass(type_):
+            # Nested model
+            if issubclass(type_, pydantic.BaseModel):
+                try:
+                    return getattr(type_, "drf_serializer")(**kwargs)
+                except AttributeError:
+                    return create_serializer_from_model(type_)(**kwargs)
+
             # Decimal
             if type_ is decimal.Decimal:
                 _context = decimal.getcontext()
@@ -279,18 +280,22 @@ def _convert_type(  # noqa: PLR0911
                     )
                 elif len(regex_patterns) == 1:
                     return serializers.RegexField(regex=item.pattern, **kwargs)
-            else:
-                for key in [type_, type_.__base__]:
-                    try:
-                        return FIELD_MAP[key](**kwargs)
-                    except KeyError:
-                        continue
+            # Enum
+            elif issubclass(type_, enum.Enum):
+                return serializers.ChoiceField(
+                    choices=[item.value for item in type_], **kwargs
+                )
 
-        # Enum
-        if issubclass(type_, enum.Enum):
-            return serializers.ChoiceField(
-                choices=[item.value for item in type_], **kwargs
-            )
+        # Explicitly defined field
+        class_candidates = [type_]
+        if hasattr(type_, "__mro__"):
+            class_candidates.extend(type_.__mro__)
+
+        for key in class_candidates:
+            try:
+                return FIELD_MAP[key](**kwargs)
+            except KeyError:
+                continue
 
         raise FieldConversionError(f"{type_.__name__} is not a supported scalar type")
 
