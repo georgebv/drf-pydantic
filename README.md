@@ -17,6 +17,7 @@
 </p>
 
 - [Introduction](#introduction)
+  - [Performance](#performance)
 - [Installation](#installation)
 - [Usage](#usage)
   - [General](#general)
@@ -38,6 +39,14 @@ then `drf-pydantic` is for you 😍.
 > ℹ️ **INFO**<br>
 > `drf_pydantic` supports `pydantic` v2. Due to breaking API changes in `pydantic`
 > v2 support for `pydantic` v1 is available only in `drf_pydantic` 1.\*.\*.
+
+## Performance
+
+Translation between `pydantic` models and `DRF` serializers is done during class
+creation (e.g., when you first import the model). This means that there will be
+zero impact on the performance of your application
+(server instance or serverless session)
+when using `drf_pydantic` while your application is running.
 
 # Installation
 
