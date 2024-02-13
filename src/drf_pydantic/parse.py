@@ -11,9 +11,9 @@ import pydantic
 import pydantic.fields
 import pydantic_core
 
-from pydantic import JsonValue
 from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
+from typing_extensions import TypeAliasType
 
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
@@ -45,7 +45,6 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     datetime.date: serializers.DateField,
     datetime.time: serializers.TimeField,
     datetime.timedelta: serializers.DurationField,
-    JsonValue: serializers.JSONField,
 }
 
 
@@ -245,58 +244,60 @@ def _convert_type(  # noqa: PLR0911
 
     # Scalar field
     if is_scalar(type_):
-        if inspect.isclass(type_):
-            # Nested model
-            if issubclass(type_, pydantic.BaseModel):
-                try:
-                    return getattr(type_, "drf_serializer")(**kwargs)
-                except AttributeError:
-                    return create_serializer_from_model(type_)(**kwargs)
-
-            # Decimal
-            if type_ is decimal.Decimal:
-                _context = decimal.getcontext()
-                kwargs["max_digits"] = kwargs.get("max_digits", None) or _context.prec
-                kwargs["decimal_places"] = (
-                    kwargs.get("decimal_places", None) or _context.prec
+        if isinstance(type_, TypeAliasType):
+            if type_ is pydantic.JsonValue:
+                return serializers.JSONField(**kwargs)
+            raise FieldConversionError(
+                f"{type_.__name__} is not a supported scalar TypeAliasType."
+            )
+        if not inspect.isclass(type_):
+            raise FieldConversionError(
+                f"{type_.__name__} is not a supported scalar type. "
+                f"Only classes are supported."
+            )
+        # Nested model
+        if issubclass(type_, pydantic.BaseModel):
+            try:
+                return getattr(type_, "drf_serializer")(**kwargs)
+            except AttributeError:
+                return create_serializer_from_model(type_)(**kwargs)
+        # Decimal
+        elif type_ is decimal.Decimal:
+            _context = decimal.getcontext()
+            kwargs["max_digits"] = kwargs.get("max_digits", None) or _context.prec
+            kwargs["decimal_places"] = (
+                kwargs.get("decimal_places", None) or _context.prec
+            )
+            return serializers.DecimalField(**kwargs)
+        # Regex
+        elif field is not None and any(
+            isinstance(item, pydantic.StringConstraints) and item.pattern is not None
+            for item in field.metadata
+        ):
+            regex_patterns: list[str] = []
+            for item in field.metadata:
+                if (
+                    isinstance(item, pydantic.StringConstraints)
+                    and item.pattern is not None
+                ):
+                    regex_patterns.append(item.pattern)
+            if len(regex_patterns) > 1:
+                raise FieldConversionError(
+                    f"Field has multiple regex patterns: {regex_patterns}"
                 )
-                return serializers.DecimalField(**kwargs)
-            # Regex
-            elif field is not None and any(
-                isinstance(item, pydantic.StringConstraints)
-                and item.pattern is not None
-                for item in field.metadata
-            ):
-                regex_patterns: list[str] = []
-                for item in field.metadata:
-                    if (
-                        isinstance(item, pydantic.StringConstraints)
-                        and item.pattern is not None
-                    ):
-                        regex_patterns.append(item.pattern)
-                if len(regex_patterns) > 1:
-                    raise FieldConversionError(
-                        f"Field has multiple regex patterns: {regex_patterns}"
-                    )
-                elif len(regex_patterns) == 1:
-                    return serializers.RegexField(regex=item.pattern, **kwargs)
-            # Enum
-            elif issubclass(type_, enum.Enum):
-                return serializers.ChoiceField(
-                    choices=[item.value for item in type_], **kwargs
-                )
-
-        # Explicitly defined field
-        class_candidates = [type_]
-        if hasattr(type_, "__mro__"):
-            class_candidates.extend(type_.__mro__)
-
-        for key in class_candidates:
+            elif len(regex_patterns) == 1:
+                return serializers.RegexField(regex=item.pattern, **kwargs)
+        # Enum
+        elif issubclass(type_, enum.Enum):
+            return serializers.ChoiceField(
+                choices=[item.value for item in type_], **kwargs
+            )
+        # Known mapped scalar field
+        for key in [type, *getattr(type_, "__mro__", [])]:
             try:
                 return FIELD_MAP[key](**kwargs)
             except KeyError:
                 continue
-
         raise FieldConversionError(f"{type_.__name__} is not a supported scalar type")
 
     # Composite field
@@ -350,7 +351,6 @@ def _convert_type(  # noqa: PLR0911
         )
     elif type_.__origin__ is typing.Literal:
         return serializers.ChoiceField(choices=type_.__args__, **kwargs)
-    else:
-        raise FieldConversionError(
-            f"{type_.__origin__.__name__} is not a supported composite type"
-        )
+    raise FieldConversionError(
+        f"{type_.__origin__.__name__} is not a supported composite type"
+    )

@@ -11,8 +11,8 @@ import pytest
 
 from drf_pydantic import BaseModel
 from drf_pydantic.errors import ModelConversionError
-from pydantic import ConfigDict, JsonValue
 from rest_framework import serializers
+from typing_extensions import TypeAliasType
 
 
 class TestScalar:
@@ -278,14 +278,6 @@ class TestScalar:
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "Field has multiple max_digits or decimal_places" in str(exc_info.value)
 
-    def test_json(self):
-        class Person(BaseModel):
-            data: JsonValue
-
-        serializer = Person.drf_serializer()
-
-        assert isinstance(serializer.fields["data"], serializers.JSONField)
-
     def test_datetime(self):
         class Person(BaseModel):
             created_at: datetime.datetime
@@ -331,21 +323,6 @@ class TestScalar:
         assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
         assert serializer.fields["gender"].choices == {0: 0, 1: 1}
 
-    def test_deeply_inherited_types(self):
-        class CustomStr(str):
-            pass
-
-        class DeepCustomStr(CustomStr):
-            pass
-
-        class Person(BaseModel):
-            name: DeepCustomStr
-            model_config = ConfigDict(arbitrary_types_allowed=True)
-
-        serializer = Person.drf_serializer()
-
-        assert isinstance(serializer.fields["name"], serializers.CharField)
-
     def test_literal(self):
         class Employee(BaseModel):
             department: typing.Literal["engineering", "sales", "marketing"]
@@ -358,6 +335,38 @@ class TestScalar:
             "sales": "sales",
             "marketing": "marketing",
         }
+
+    def test_pydantic_json_value(self):
+        class Person(BaseModel):
+            data: pydantic.JsonValue
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["data"], serializers.JSONField)
+
+    @pytest.mark.parametrize(
+        "pydantic_type, drf_type",
+        [
+            (str, serializers.CharField),
+            (int, serializers.IntegerField),
+            (float, serializers.FloatField),
+        ],
+    )
+    def test_deeply_inherited_types(self, pydantic_type, drf_type):
+        class CustomType(pydantic_type):
+            pass
+
+        class DeepCustomType(CustomType):
+            pass
+
+        class Person(BaseModel):
+            value: DeepCustomType
+
+            model_config = {"arbitrary_types_allowed": True}
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["value"], drf_type)
 
     def test_unsupported_type_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -376,6 +385,20 @@ class TestScalar:
 
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "CustomType is not a supported scalar" in str(exc_info.value)
+
+    def test_unsupported_type_alias_error(self):
+        CustomTypeAlias = TypeAliasType("CustomTypeAlias", str)  # noqa: N806
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                name: CustomTypeAlias  # type: ignore
+
+                model_config = {"arbitrary_types_allowed": True}
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "CustomTypeAlias is not a supported scalar" in str(exc_info.value)
 
 
 class TestComposite:
