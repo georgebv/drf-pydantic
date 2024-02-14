@@ -166,3 +166,87 @@ def test_non_drf_nested_model():
     assert len(apartment.fields) == 2
     assert isinstance(apartment.fields["floor"], serializers.IntegerField)
     assert isinstance(apartment.fields["owner"], serializers.CharField)
+
+
+def test_manual_serializer():
+    class MyCustomSerializer(serializers.Serializer):
+        gender = serializers.ChoiceField(choices=["male", "female"])
+        title = serializers.CharField()
+        peers = serializers.ListField(child=serializers.IntegerField())
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+        drf_serializer = MyCustomSerializer
+
+    serializer = Person.drf_serializer()
+    assert serializer.__class__.__name__ == "MyCustomSerializer"
+    assert len(serializer.fields) == 3
+    assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
+    assert isinstance(serializer.fields["title"], serializers.CharField)
+    assert isinstance(serializer.fields["peers"], serializers.ListField)
+
+
+def test_manual_serializer_inheritance():
+    """Ensure that manual serializer is not inherited from the parent class."""
+
+    class MyCustomSerializer(serializers.Serializer):
+        gender = serializers.ChoiceField(choices=["male", "female"])
+        title = serializers.CharField()
+        peers = serializers.ListField(child=serializers.IntegerField())
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+        drf_serializer = MyCustomSerializer
+
+    class Employee(Person):
+        salary: float
+        office: str
+
+    person_serializer = Person.drf_serializer()
+    assert person_serializer.__class__.__name__ == "MyCustomSerializer"
+    assert len(person_serializer.fields) == 3
+    assert isinstance(person_serializer.fields["gender"], serializers.ChoiceField)
+    assert isinstance(person_serializer.fields["title"], serializers.CharField)
+    assert isinstance(person_serializer.fields["peers"], serializers.ListField)
+
+    employee_serializer = Employee.drf_serializer()
+    assert employee_serializer.__class__.__name__ == "EmployeeSerializer"
+    assert len(employee_serializer.fields) == 4
+    assert isinstance(employee_serializer.fields["name"], serializers.CharField)
+    assert isinstance(employee_serializer.fields["age"], serializers.IntegerField)
+    assert isinstance(employee_serializer.fields["salary"], serializers.FloatField)
+    assert isinstance(employee_serializer.fields["office"], serializers.CharField)
+
+
+def test_nested_manual_serializer():
+    class MyCustomSerializer(serializers.Serializer):
+        gender = serializers.ChoiceField(choices=["male", "female"])
+        title = serializers.CharField()
+        peers = serializers.ListField(child=serializers.IntegerField())
+
+    class Job(BaseModel):
+        title: str
+        salary: float
+
+        drf_serializer = MyCustomSerializer
+
+    class Person(BaseModel):
+        name: str
+        job: Job
+
+    serializer = Person.drf_serializer()
+    assert serializer.__class__.__name__ == "PersonSerializer"
+    assert len(serializer.fields) == 2
+    assert isinstance(serializer.fields["name"], serializers.CharField)
+    assert isinstance(serializer.fields["job"], serializers.Serializer)
+
+    job_serializer = serializer.fields["job"]
+    assert job_serializer.__class__.__name__ == "MyCustomSerializer"
+    assert len(job_serializer.fields) == 3
+    assert isinstance(job_serializer.fields["gender"], serializers.ChoiceField)
+    assert isinstance(job_serializer.fields["title"], serializers.CharField)
+    assert isinstance(job_serializer.fields["peers"], serializers.ListField)
