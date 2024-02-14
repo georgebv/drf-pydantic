@@ -23,7 +23,9 @@
   - [General](#general)
   - [Existing Models](#existing-models)
   - [Nested Models](#nested-models)
-- [Roadmap](#roadmap)
+  - [Manual Serializer Configuration](#manual-serializer-configuration)
+    - [Per-Field Configuration](#per-field-configuration)
+    - [Custom Serializer](#custom-serializer)
 
 # Introduction
 
@@ -36,8 +38,7 @@ on top of [Django](https://www.djangoproject.com/) used to write REST APIs.
 If you develop DRF APIs and rely on pydantic for data validation/(de)serialization ,
 then `drf-pydantic` is for you 😍.
 
-> ℹ️ **INFO**<br>
-> `drf_pydantic` supports `pydantic` v2. Due to breaking API changes in `pydantic`
+> ℹ️ **INFO**<br> > `drf_pydantic` supports `pydantic` v2. Due to breaking API changes in `pydantic`
 > v2 support for `pydantic` v1 is available only in `drf_pydantic` 1.\*.\*.
 
 ## Performance
@@ -65,8 +66,8 @@ models:
 from drf_pydantic import BaseModel
 
 class MyModel(BaseModel):
-  name: str
-  addresses: list[str]
+    name: str
+    addresses: list[str]
 ```
 
 `MyModel.drf_serializer` would be equvalent to the following DRF Serializer class:
@@ -75,10 +76,10 @@ class MyModel(BaseModel):
 class MyModelSerializer:
     name = CharField(allow_null=False, required=True)
     addresses = ListField(
-      allow_empty=True,
-      allow_null=False,
-      child=CharField(allow_null=False),
-      required=True,
+        allow_empty=True,
+        allow_null=False,
+        child=CharField(allow_null=False),
+        required=True,
     )
 ```
 
@@ -106,10 +107,10 @@ Your existing pydantic models:
 from pydantic import BaseModel
 
 class Pet(BaseModel):
-  name: str
+    name: str
 
 class Dog(Pet):
-  breed: str
+    breed: str
 ```
 
 Update your `Dog` model and get serializer via the `drf_serializer`:
@@ -119,10 +120,10 @@ from drf_pydantic import BaseModel as DRFBaseModel
 from pydantic import BaseModel
 
 class Pet(BaseModel):
-  name: str
+    name: str
 
 class Dog(DRFBaseModel, Pet):
-  breed: str
+    breed: str
 
 Dog.drf_serializer
 ```
@@ -142,20 +143,46 @@ from drf_pydantic import BaseModel as DRFBaseModel
 from pydantic import BaseModel
 
 class Apartment(BaseModel):
-  floor: int
-  tenant: str
+    floor: int
+    tenant: str
 
 class Building(BaseModel):
-  address: str
-  aparments: list[Apartment]
+    address: str
+    aparments: list[Apartment]
 
 class Block(DRFBaseModel):
-  buildings: list[Buildind]
+    buildings: list[Buildind]
 
 Block.drf_serializer
 ```
 
-# Roadmap
+## Manual Serializer Configuration
 
-- Add support for custom field types (both for pydantic and DRF)
-- Add option to create custom serializer for complex models
+If `drf_pydantic` does not generate the serializer you need, you can either granularly
+configure which DRF serializer fields to use for each pydantic field, or you can
+create a custom serializer for the model altogether.
+
+> ⚠️ **WARNING**<br>
+> When manually configuring the serializer you are responsible for setting all
+> properties of the fields (e.g., `allow_null`, `required`, `default`, etc.).
+> `drf_pydantic` does not perform any introspection for fields that are manually
+> configured or for any fields if a custom serializer is used.
+
+### Per-Field Configuration
+
+```python
+from typing import Annotated
+
+from drf_pydantic import BaseModel
+from rest_framework.serializers import IntegerField
+
+class Person(BaseModel):
+    name: str
+    age: Annotated[float, IntegerField(min_value=0, max_value=100)]
+```
+
+### Custom Serializer
+
+```python
+# TODO
+```

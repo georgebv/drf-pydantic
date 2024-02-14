@@ -114,6 +114,19 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
         Django REST framework serializer Field instance.
 
     """
+    # Check if DRF field was explicitly set
+    manual_drf_fields: list[serializers.Field] = []
+    for item in field.metadata:
+        if isinstance(item, serializers.Field):
+            manual_drf_fields.append(item)
+    if len(manual_drf_fields) == 1:
+        return manual_drf_fields[0]
+    if len(manual_drf_fields) > 1:
+        raise FieldConversionError(
+            "Field has multiple conflicting DRF serializer fields. "
+            "Only one DRF serializer field can be provided per field."
+        )
+
     assert field.annotation is not None
     drf_field_kwargs: dict[str, typing.Any] = {
         "required": field.is_required(),
