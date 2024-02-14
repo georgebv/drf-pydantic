@@ -40,7 +40,7 @@ jobs:
       - name: Run tests and generate coverage report
         run: poetry run pytest
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v3
         if: success() && matrix.python-version == '3.9'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
