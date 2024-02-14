@@ -536,6 +536,19 @@ class TestUnion:
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
 
+    def test_optional_type_with_annotation(self):
+        class Person(BaseModel):
+            name: typing.Annotated[
+                typing.Optional[str],
+                pydantic.StringConstraints(min_length=3),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        field: serializers.Field = serializer.fields["name"]
+        assert isinstance(field, serializers.CharField)
+        assert field.allow_null is True
+
     def test_union_field_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
 
@@ -586,3 +599,79 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_5"].allow_null is True
     assert serializer.fields["field_6"].allow_null is True
     assert serializer.fields["field_7"].allow_null is True
+
+
+class TestManualFields:
+    def test_same_type(self):
+        class Person(BaseModel):
+            age: typing.Annotated[int, serializers.IntegerField()]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["age"], serializers.IntegerField)
+        assert serializer.fields["age"].required is True
+
+    def test_different_type(self):
+        class Person(BaseModel):
+            age: typing.Annotated[int, serializers.CharField()]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["age"], serializers.CharField)
+        assert serializer.fields["age"].required is True
+        assert serializer.fields["age"].allow_null is False
+
+    def test_same_type_optional(self):
+        class Person(BaseModel):
+            age: typing.Annotated[
+                typing.Optional[int],
+                serializers.IntegerField(),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["age"], serializers.IntegerField)
+        assert serializer.fields["age"].required is True
+        assert serializer.fields["age"].allow_null is False
+
+    def test_different_type_optional(self):
+        class Person(BaseModel):
+            age: typing.Annotated[
+                typing.Optional[int],
+                serializers.CharField(),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["age"], serializers.CharField)
+        assert serializer.fields["age"].required is True
+        assert serializer.fields["age"].allow_null is False
+
+    def test_required_override(self):
+        class Person(BaseModel):
+            age: typing.Annotated[
+                int,
+                serializers.IntegerField(required=False),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["age"], serializers.IntegerField)
+        assert serializer.fields["age"].required is False
+
+    def test_multiple_field_error(self):
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                age: typing.Annotated[
+                    int,
+                    serializers.IntegerField(),
+                    serializers.CharField(),
+                ]
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "Field has multiple conflicting DRF serializer fields" in str(
+            exc_info.value
+        )
