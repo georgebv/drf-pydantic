@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional
 
 import pydantic
 
@@ -34,11 +34,19 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             _create_model_module,
             **kwargs,
         )
-        setattr(cls, "drf_serializer", create_serializer_from_model(cls))
+        # Create serializer only if it's not already set by the user
+        # Serializer should never be inherited from the parent classes
+        if not hasattr(cls, "drf_serializer") or getattr(cls, "drf_serializer") in (
+            getattr(base, "drf_serializer", None) for base in cls.__mro__[1:]
+        ):
+            setattr(
+                cls,
+                "drf_serializer",
+                create_serializer_from_model(cls),
+            )
         return cls
 
 
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
-    if TYPE_CHECKING:
-        # Populated by the metaclass, defined here to help IDEs only
-        drf_serializer: ClassVar[type[serializers.Serializer]]
+    # Populated by the metaclass or manually set by the user
+    drf_serializer: ClassVar[type[serializers.Serializer]]
