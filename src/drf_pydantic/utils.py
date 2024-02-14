@@ -37,6 +37,10 @@ def is_scalar(type_: Type) -> bool:
     """
     Check if type is a scalar type.
 
+    Scalar field is any field that is not a pydantic model (this would be nested field)
+    or a collection field (e.g., list[int]).
+    Examples of scalar fields: int, float, datetime, pydantic.EmailStr
+
     Parameters
     ----------
     type_ : type

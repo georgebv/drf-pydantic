@@ -398,7 +398,7 @@ class TestScalar:
             Person.drf_serializer()
 
         assert "Error when converting model: Person" in str(exc_info.value)
-        assert "CustomTypeAlias is not a supported scalar" in str(exc_info.value)
+        assert "CustomTypeAlias is not a supported TypeAliasType" in str(exc_info.value)
 
 
 class TestComposite:
