@@ -99,9 +99,7 @@ def create_serializer_from_model(
     return SERIALIZER_REGISTRY[pydantic_model]
 
 
-def _convert_field(
-    field: pydantic.fields.FieldInfo,
-) -> serializers.Field:
+def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
     """
     Convert pydantic field to DRF serializer Field.
 
@@ -199,30 +197,26 @@ def _convert_field(
 
 
 def _convert_type(  # noqa: PLR0911
-    type_: typing.Type,
+    type_: typing.Union[typing.Type, TypeAliasType],
     field: typing.Optional[pydantic.fields.FieldInfo] = None,
     **kwargs,
 ) -> serializers.Field:
     """
-    Convert scalar type to serializer field class.
-
-    Scalar field is any field that is not a pydantic model (this would be nested field)
-    or a collection field (e.g., list[int]).
-    Examples of scalar fields: int, float, datetime, pydantic.EmailStr
+    Convert type or type alias to DRF serializer Field.
 
     Parameters
     ----------
-    type_ : type
+    type_ : type | TypeAliasType
         Field class.
-    field : typing.Optional[pydantic.fields.FieldInfo]
+    field : pydantic.fields.FieldInfo | None
         Pydantic field instance.
     kwargs : dict
         Additional keyword arguments used to instantiate the serializer Field class.
 
     Returns
     -------
-    type[serializers.Field]
-        Serializer field class.
+    rest_framework.serializers.Field
+        Django REST framework serializer Field instance.
 
     """
     field_union_members = get_union_members(type_)
@@ -242,18 +236,20 @@ def _convert_type(  # noqa: PLR0911
     else:
         kwargs["allow_null"] = False
 
+    # Type alias
+    if isinstance(type_, TypeAliasType):
+        if type_ is pydantic.JsonValue:
+            return serializers.JSONField(**kwargs)
+        raise FieldConversionError(
+            f"{type_.__name__} is not a supported TypeAliasType."
+        )
+
     # Scalar field
     if is_scalar(type_):
-        if isinstance(type_, TypeAliasType):
-            if type_ is pydantic.JsonValue:
-                return serializers.JSONField(**kwargs)
-            raise FieldConversionError(
-                f"{type_.__name__} is not a supported scalar TypeAliasType."
-            )
         if not inspect.isclass(type_):
-            raise FieldConversionError(
+            raise FieldConversionError(  # pragma: no cover
                 f"{type_.__name__} is not a supported scalar type. "
-                f"Only classes are supported."
+                f"Only classes and TypeAliasType instances are supported."
             )
         # Nested model
         if issubclass(type_, pydantic.BaseModel):
@@ -298,7 +294,7 @@ def _convert_type(  # noqa: PLR0911
                 return FIELD_MAP[key](**kwargs)
             except KeyError:
                 continue
-        raise FieldConversionError(f"{type_.__name__} is not a supported scalar type")
+        raise FieldConversionError(f"{type_.__name__} is not a supported scalar type.")
 
     # Composite field
     if type_.__origin__ is list:
@@ -352,5 +348,5 @@ def _convert_type(  # noqa: PLR0911
     elif type_.__origin__ is typing.Literal:
         return serializers.ChoiceField(choices=type_.__args__, **kwargs)
     raise FieldConversionError(
-        f"{type_.__origin__.__name__} is not a supported composite type"
+        f"{type_.__origin__.__name__} is not a supported composite type."
     )
