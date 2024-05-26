@@ -604,8 +604,8 @@ def test_drf_field_kwargs():
 
     assert serializer.fields["field_6"].help_text is None
     assert serializer.fields["field_7"].help_text is None
-    assert serializer.fields["field_8"].help_text is not None
-    assert serializer.fields["field_9"].help_text is not None
+    assert serializer.fields["field_8"].help_text == "8th field"
+    assert serializer.fields["field_9"].help_text == "9th field"
 
 
 class TestManualFields:
