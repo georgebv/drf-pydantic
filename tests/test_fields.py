@@ -601,10 +601,11 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_5"].allow_null is True
     assert serializer.fields["field_6"].allow_null is True
     assert serializer.fields["field_7"].allow_null is True
-    assert serializer.fields["field_8"].help_text is not None
-    assert serializer.fields["field_9"].help_text is not None
+
     assert serializer.fields["field_6"].help_text is None
     assert serializer.fields["field_7"].help_text is None
+    assert serializer.fields["field_8"].help_text is not None
+    assert serializer.fields["field_9"].help_text is not None
 
 
 class TestManualFields:
