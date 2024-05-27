@@ -13,6 +13,7 @@ jobs:
   test:
     name: Test
     uses: ./.github/workflows/test.yml
+    secrets: inherit
   publish:
     name: Publish to PyPI
     needs: [lint, test]
