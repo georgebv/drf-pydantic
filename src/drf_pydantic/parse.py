@@ -135,6 +135,13 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
     if _default_value is not pydantic_core.PydanticUndefined:
         drf_field_kwargs["default"] = _default_value
 
+    # Adding description as help_text
+    if (
+        field.description is not pydantic_core.PydanticUndefined
+        and field.description is not None
+    ):
+        drf_field_kwargs["help_text"] = field.description
+
     # Process constraints
     for item in field.metadata:
         if isinstance(item, pydantic.StringConstraints):
