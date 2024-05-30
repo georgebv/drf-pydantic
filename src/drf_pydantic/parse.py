@@ -69,6 +69,12 @@ def create_serializer_from_model(
         errors: dict[str, str] = {}
         fields: dict[str, type[serializers.Field]] = {}
         for field_name, field in pydantic_model.model_fields.items():
+            # Change field name by validation_alias / alias
+            if (
+                field.validation_alias is not pydantic_core.PydanticUndefined
+                and field.validation_alias is not None
+            ):
+                field_name = field.validation_alias  # noqa PLW2901
             try:
                 fields[field_name] = _convert_field(field)
             except FieldConversionError as error:
