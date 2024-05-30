@@ -608,6 +608,34 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_9"].help_text == "9th field"
 
 
+def test_serializer_field_name_with_validation_alias():
+    """Test of creation of serializer with alias, that is used for input data parsing."""
+    class Test(BaseModel):
+        """Test class."""
+        long_complex_name_of_number_list: typing.Annotated[
+            typing.List[int],
+            pydantic.Field(validation_alias="numbers")
+        ]
+
+    serializer = Test.drf_serializer()
+    assert serializer.fields["numbers"] is not None
+
+
+def test_convert_camel_to_snake_case_by_validation_alias():
+    """Test of conversion of camelCase to snake_case by validation_alias."""
+
+    class Test(BaseModel):
+        """Test class."""
+        test_value: typing.Annotated[
+            str,
+            pydantic.Field(validation_alias="testValue")
+        ]
+
+    data = Test.drf_serializer(data={"testValue": "test"})
+    data.is_valid(raise_exception=True)
+    assert Test(**data.validated_data).test_value == "test"
+
+
 class TestManualFields:
     def test_same_type(self):
         class Person(BaseModel):
