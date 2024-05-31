@@ -48,6 +48,43 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 }
 
 
+class AliasParsingResult(typing.NamedTuple):
+    """Result of parsing Pydantic Field alias."""
+
+    field_name: str
+    source: typing.Optional[str] = None
+
+
+def _parse_alias(
+    field_name: str, field: pydantic.fields.FieldInfo
+) -> AliasParsingResult:
+    """Parse Pydantic Field alias."""
+    if (
+        field.validation_alias is not pydantic_core.PydanticUndefined
+        and field.serialization_alias is not pydantic_core.PydanticUndefined
+    ):
+        if field.validation_alias is not None and field.serialization_alias is not None:
+            if field.validation_alias != field.serialization_alias:
+                raise FieldConversionError(
+                    "Field has conflicting validation and serialization aliases. "
+                    "Only one alias can be provided per field. "
+                    'If you want to use both, use "alias".'
+                )
+            return AliasParsingResult(field_name=field.validation_alias)
+
+        if field.validation_alias is not None:
+            return AliasParsingResult(
+                field_name=field.validation_alias, source=field_name
+            )
+
+        if field.serialization_alias is not None:
+            return AliasParsingResult(
+                field_name=field_name, source=field.serialization_alias
+            )
+
+    return AliasParsingResult(field_name=field_name)
+
+
 def create_serializer_from_model(
     pydantic_model: typing.Type[pydantic.BaseModel],
 ) -> type[serializers.Serializer]:
@@ -69,14 +106,9 @@ def create_serializer_from_model(
         errors: dict[str, str] = {}
         fields: dict[str, type[serializers.Field]] = {}
         for field_name, field in pydantic_model.model_fields.items():
-            # Change field name by validation_alias / alias
-            if (
-                field.validation_alias is not pydantic_core.PydanticUndefined
-                and field.validation_alias is not None
-            ):
-                field_name = field.validation_alias  # noqa PLW2901
+            field_name, source = _parse_alias(field_name, field)  # noqa PLW2901
             try:
-                fields[field_name] = _convert_field(field)
+                fields[field_name] = _convert_field(field, source)
             except FieldConversionError as error:
                 errors[field_name] = str(error)
         if len(errors) > 0:
@@ -105,7 +137,9 @@ def create_serializer_from_model(
     return SERIALIZER_REGISTRY[pydantic_model]
 
 
-def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
+def _convert_field(
+    field: pydantic.fields.FieldInfo, source: typing.Optional[str] = None
+) -> serializers.Field:
     """
     Convert pydantic field to DRF serializer Field.
 
@@ -113,6 +147,8 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
     ----------
     field : pydantic.fields.FieldInfo
         Field to convert.
+    source : typing.Optional[str]
+        Source attribute of the serializer field.
 
     Returns
     -------
@@ -147,6 +183,9 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
         and field.description is not None
     ):
         drf_field_kwargs["help_text"] = field.description
+
+    if source:
+        drf_field_kwargs["source"] = source
 
     # Process constraints
     for item in field.metadata:

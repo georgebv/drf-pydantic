@@ -10,7 +10,7 @@ import pydantic
 import pytest
 
 from drf_pydantic import BaseModel
-from drf_pydantic.errors import ModelConversionError
+from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from rest_framework import serializers
 from typing_extensions import TypeAliasType
 
@@ -610,30 +610,60 @@ def test_drf_field_kwargs():
 
 def test_serializer_field_name_with_validation_alias():
     """Test of creation of serializer with alias, that is used for input data parsing."""
+
     class Test(BaseModel):
         """Test class."""
+
         long_complex_name_of_number_list: typing.Annotated[
-            typing.List[int],
-            pydantic.Field(validation_alias="numbers")
+            typing.List[int], pydantic.Field(validation_alias="numbers")
         ]
 
     serializer = Test.drf_serializer()
     assert serializer.fields["numbers"] is not None
 
 
-def test_convert_camel_to_snake_case_by_validation_alias():
-    """Test of conversion of camelCase to snake_case by validation_alias."""
+def test_validation_alias_parsing():
+    class TestPydantic(BaseModel):
+        my_field: typing.Annotated[str, pydantic.Field(validation_alias="myField")]
 
-    class Test(BaseModel):
-        """Test class."""
-        test_value: typing.Annotated[
-            str,
-            pydantic.Field(validation_alias="testValue")
-        ]
+    inner_serializer = TestPydantic.drf_serializer(data={"myField": "test"})
+    inner_serializer.is_valid(raise_exception=True)
+    assert (
+        TestPydantic(myField="test").my_field
+        == inner_serializer.validated_data["my_field"]
+    )
 
-    data = Test.drf_serializer(data={"testValue": "test"})
-    data.is_valid(raise_exception=True)
-    assert Test(**data.validated_data).test_value == "test"
+
+def test_serialization_alias_parsing():
+    class TestPydantic(BaseModel):
+        my_field: typing.Annotated[str, pydantic.Field(serialization_alias="myField")]
+
+    outer_serializer = TestPydantic.drf_serializer()
+    assert outer_serializer.fields["my_field"] is not None
+    assert outer_serializer.fields["my_field"].source == "myField"
+
+    outer_serializer = TestPydantic.drf_serializer(data={"my_field": "test"})
+    outer_serializer.is_valid(raise_exception=True)
+    assert outer_serializer.validated_data["myField"] == "test"
+
+
+def test_parsing_different_serialization_and_validation_aliases():
+    with pytest.raises(FieldConversionError):
+
+        class TestPydantic(BaseModel):
+            my_field: typing.Annotated[
+                str,
+                pydantic.Field(serialization_alias="test1", validation_alias="test2"),
+            ]
+
+
+def test_alias_parsing():
+    class TestPydantic(BaseModel):
+        my_field_with_long_name: typing.Annotated[str, pydantic.Field(alias="my_field")]
+
+    serializer = TestPydantic.drf_serializer(data={"my_field": "test"})
+    serializer.is_valid(raise_exception=True)
+    assert serializer.validated_data["my_field"] == "test"
 
 
 class TestManualFields:
