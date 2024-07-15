@@ -26,6 +26,7 @@
   - [Manual Serializer Configuration](#manual-serializer-configuration)
     - [Per-Field Configuration](#per-field-configuration)
     - [Custom Serializer](#custom-serializer)
+- [Additional Properties](#additional-properties)
 
 # Introduction
 
@@ -213,3 +214,16 @@ class Employee(Person):
 class Company(BaseModel):
     ceo: Person
 ```
+
+# Additional Properties
+
+Additional field properties are set according to the following mapping (`pydantic` -> `drf`):
+
+- `description` -> `help_text`
+- `title` -> `label`
+- `StringConstraints` -> `min_length` and `max_length` attributes are set
+- `pattern` -> uses special serializer field `RegexField`
+- `max_digits` and `decimal_places` attributes are carried over as is
+  (used for `Decimal` type). By default uses current decimal context precision.
+- `ge` / `gt` -> `min_value`
+- `le` / `lt` -> `max_value`
