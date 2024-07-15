@@ -143,10 +143,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
         drf_field_kwargs["help_text"] = field.description
 
     # Adding label as title
-    if (
-        field.title is not pydantic_core.PydanticUndefined
-        and field.title is not None
-    ):
+    if field.title is not pydantic_core.PydanticUndefined and field.title is not None:
         drf_field_kwargs["label"] = field.title
 
     # Process constraints

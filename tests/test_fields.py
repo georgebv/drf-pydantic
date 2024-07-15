@@ -575,6 +575,7 @@ def test_drf_field_kwargs():
         field_7: typing.Optional[str] = None
         field_8: typing.Annotated[str, pydantic.Field(description="8th field")]
         field_9: str = pydantic.Field(default="default", description="9th field")
+        field_10: str = pydantic.Field(default="default", title="10th field")
 
     serializer = Person.drf_serializer()
 
@@ -606,6 +607,8 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_7"].help_text is None
     assert serializer.fields["field_8"].help_text == "8th field"
     assert serializer.fields["field_9"].help_text == "9th field"
+
+    assert serializer.fields["field_10"].label == "10th field"
 
 
 class TestManualFields:
