@@ -11,6 +11,7 @@ import pydantic
 import pydantic.fields
 import pydantic_core
 
+from annotated_types import MaxLen, MinLen
 from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 from typing_extensions import TypeAliasType
@@ -157,6 +158,24 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 if item.min_length is not None
                 else drf_field_kwargs.get("min_length", None)
             )
+            drf_field_kwargs["max_length"] = (
+                min(
+                    drf_field_kwargs.get("max_length", float("inf")),
+                    item.max_length,
+                )
+                if item.max_length is not None
+                else drf_field_kwargs.get("max_length", None)
+            )
+        elif isinstance(item, MinLen):
+            drf_field_kwargs["min_length"] = (
+                max(
+                    drf_field_kwargs.get("min_length", float("-inf")),
+                    item.min_length,
+                )
+                if item.min_length is not None
+                else drf_field_kwargs.get("min_length", None)
+            )
+        elif isinstance(item, MaxLen):
             drf_field_kwargs["max_length"] = (
                 min(
                     drf_field_kwargs.get("max_length", float("inf")),

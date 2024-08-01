@@ -45,6 +45,15 @@ class TestScalar:
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
 
+    def test_constrained_list(self):
+        class Person(BaseModel):
+            name: list[int] = pydantic.Field(min_length=3, max_length=10)
+
+        serializer = Person.drf_serializer()
+        assert isinstance(serializer.fields["name"], serializers.ListField)
+        assert serializer.fields["name"].min_length == 3
+        assert serializer.fields["name"].max_length == 10
+
     def test_email(self):
         class Person(BaseModel):
             email: pydantic.EmailStr
