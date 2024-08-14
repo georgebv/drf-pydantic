@@ -118,6 +118,30 @@ def test_nested_model():
     assert isinstance(job.fields["salary"], serializers.FloatField)
 
 
+def test_nested_recursive_model():
+    class Task(BaseModel):
+        title: str
+        parent: "Task"
+        subtasks: list["Task"]
+
+    Task.model_rebuild()
+
+    serializer = Task.drf_serializer()
+
+    # Parent model
+    assert serializer.__class__.__name__ == "TaskSerializer"
+    assert len(serializer.fields) == 3
+    assert isinstance(serializer.fields["title"], serializers.CharField)
+    assert isinstance(serializer.fields["parent"], serializers.Serializer)
+    assert isinstance(serializer.fields["subtasks"], serializers.ListField)
+
+    parent: serializers.Serializer = serializer.fields["parent"]
+    assert parent.__class__.__name__ == "TaskSerializer"
+    assert len(parent.fields) == 3
+    assert isinstance(parent.fields["title"], serializers.CharField)
+    assert isinstance(parent.fields["parent"], serializers.Serializer)
+
+
 def test_list_of_nested_models():
     class Apartment(BaseModel):
         floor: int

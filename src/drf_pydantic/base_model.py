@@ -9,7 +9,7 @@ from pydantic._internal._model_construction import PydanticGenericMetadata
 from rest_framework import serializers
 from typing_extensions import dataclass_transform
 
-from drf_pydantic.parse import create_serializer_from_model
+from drf_pydantic.parse import SERIALIZER_REGISTRY, create_serializer_from_model
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(pydantic.Field,))
@@ -50,3 +50,25 @@ class ModelMetaclass(PydanticModelMetaclass, type):
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
     # Populated by the metaclass or manually set by the user
     drf_serializer: ClassVar[type[serializers.Serializer]]
+
+    @classmethod
+    def model_rebuild(
+        cls,
+        *,
+        force: bool = False,
+        raise_errors: bool = True,
+        _parent_namespace_depth: int = 2,
+        _types_namespace: Optional[dict[str, Any]] = None,
+    ) -> bool | None:
+        ret = super().model_rebuild(
+            force=force,
+            raise_errors=raise_errors,
+            _parent_namespace_depth=_parent_namespace_depth,
+            _types_namespace=_types_namespace,
+        )
+
+        if cls in SERIALIZER_REGISTRY:
+            SERIALIZER_REGISTRY.pop(cls)
+            cls.drf_serializer = create_serializer_from_model(cls)
+
+        return ret
