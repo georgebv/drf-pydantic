@@ -342,18 +342,29 @@ class TestScalar:
         assert isinstance(serializer.fields["gender"], serializers.ChoiceField)
         assert serializer.fields["gender"].choices == {0: 0, 1: 1}
 
-    def test_literal(self):
-        class Employee(BaseModel):
-            department: typing.Literal["engineering", "sales", "marketing"]
+    def test_scalar_list(self):
+        class Person(BaseModel):
+            data: list
 
-        serializer = Employee.drf_serializer()
+        serializer = Person.drf_serializer()
 
-        assert isinstance(serializer.fields["department"], serializers.ChoiceField)
-        assert serializer.fields["department"].choices == {
-            "engineering": "engineering",
-            "sales": "sales",
-            "marketing": "marketing",
-        }
+        assert isinstance(serializer.fields["data"], serializers.ListField)
+
+    def test_scalar_tuple(self):
+        class Person(BaseModel):
+            data: tuple
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["data"], serializers.ListField)
+
+    def test_scalar_dict(self):
+        class Person(BaseModel):
+            data: dict
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["data"], serializers.DictField)
 
     def test_pydantic_json_value(self):
         class Person(BaseModel):
@@ -500,6 +511,19 @@ class TestComposite:
 
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "is not a supported dict type" in str(exc_info.value)
+
+    def test_literal(self):
+        class Employee(BaseModel):
+            department: typing.Literal["engineering", "sales", "marketing"]
+
+        serializer = Employee.drf_serializer()
+
+        assert isinstance(serializer.fields["department"], serializers.ChoiceField)
+        assert serializer.fields["department"].choices == {
+            "engineering": "engineering",
+            "sales": "sales",
+            "marketing": "marketing",
+        }
 
     def test_unsupported_type_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
