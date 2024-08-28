@@ -46,6 +46,10 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     datetime.date: serializers.DateField,
     datetime.time: serializers.TimeField,
     datetime.timedelta: serializers.DurationField,
+    # Scalar collections
+    list: serializers.ListField,
+    tuple: serializers.ListField,
+    dict: serializers.DictField,
 }
 
 
