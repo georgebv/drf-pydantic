@@ -36,11 +36,12 @@ data serialization and validation.
 [Django REST framework](https://www.django-rest-framework.org) is a framework built
 on top of [Django](https://www.djangoproject.com/) used to write REST APIs.
 
-If you develop DRF APIs and rely on pydantic for data validation/(de)serialization ,
-then `drf-pydantic` is for you 😍.
+If you develop DRF APIs and rely on pydantic for data validation/(de)serialization,
+then `drf-pydantic` is for you :heart_eyes:.
 
-> ℹ️ **INFO**<br> > `drf_pydantic` supports `pydantic` v2. Due to breaking API changes in `pydantic`
-> v2 support for `pydantic` v1 is available only in `drf_pydantic` 1.\*.\*.
+> [!NOTE]
+> The latest version of `drf_pydantic` only supports `pydantic` v2.
+> Support for `pydantic` v1 is available in the `1.*` version.
 
 ## Performance
 
@@ -91,14 +92,14 @@ my_value = MyModel.drf_serializer(data={"name": "Van", addresses: ["Gym"]})
 my_value.is_valid(raise_exception=True)
 ```
 
-> ℹ️ **INFO**<br>
+> [!NOTE]
 > Models created using `drf_pydantic` are fully idenditcal to those created by
 > `pydantic`. The only change is the addition of the `drf_serializer` attribute.
 
 ## Existing Models
 
 If you have an existing code base and you would like to add the `drf_serializer`
-attribute only to some of your models, then I have great news 🥳 - you can easily
+attribute only to some of your models, then I have great news - you can easily
 extend your existing `pydantic` models by adding `drf_pydantic.BaseModel` to the list
 of parent classes of the model you want to extend.
 
@@ -129,7 +130,7 @@ class Dog(DRFBaseModel, Pet):
 Dog.drf_serializer
 ```
 
-> ⚠️ **ATTENTION**<br>
+> [!IMPORTANT]
 > Inheritance order is important: `drf_pydantic.BaseModel` must always go before
 > the `pydantic.BaseModel` class.
 
@@ -137,7 +138,7 @@ Dog.drf_serializer
 
 If you have nested models and you want to generate serializer only from one of them,
 you don't have to update all models - only update the model you need, `drf_pydantic`
-will generate serializers for all normal nested `pydantic` models for free 🥷.
+will generate serializers for all normal nested `pydantic` models for free!
 
 ```python
 from drf_pydantic import BaseModel as DRFBaseModel
@@ -163,7 +164,7 @@ If `drf_pydantic` does not generate the serializer you need, you can either gran
 configure which DRF serializer fields to use for each pydantic field, or you can
 create a custom serializer for the model altogether.
 
-> ⚠️ **WARNING**<br>
+> [!IMPORTANT]
 > When manually configuring the serializer you are responsible for setting all
 > properties of the fields (e.g., `allow_null`, `required`, `default`, etc.).
 > `drf_pydantic` does not perform any introspection for fields that are manually
@@ -217,7 +218,8 @@ class Company(BaseModel):
 
 # Additional Properties
 
-Additional field properties are set according to the following mapping (`pydantic` -> `drf`):
+Additional field properties are set according
+to the following mapping (`pydantic` -> `drf`):
 
 - `description` -> `help_text`
 - `title` -> `label`
