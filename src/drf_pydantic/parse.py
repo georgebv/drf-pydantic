@@ -212,7 +212,10 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 raise FieldConversionError(
                     "Field has multiple conflicting min_value constraints"
                 )
-            drf_field_kwargs["min_value"] = item.ge
+            try:
+                drf_field_kwargs["min_value"] = decimal.Decimal(item.ge)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["min_value"] = item.ge
         elif isinstance(item, annotated_types.Gt):
             if drf_field_kwargs.get("min_value", None) is not None:
                 raise FieldConversionError(
@@ -222,13 +225,19 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 "gt (>) is not supported by DRF, using ge (>=) instead",
                 UserWarning,
             )
-            drf_field_kwargs["min_value"] = item.gt
+            try:
+                drf_field_kwargs["min_value"] = decimal.Decimal(item.gt)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["min_value"] = item.gt
         elif isinstance(item, annotated_types.Le):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
                     "Field has multiple conflicting max_value constraints"
                 )
-            drf_field_kwargs["max_value"] = item.le
+            try:
+                drf_field_kwargs["max_value"] = decimal.Decimal(item.le)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["max_value"] = item.le
         elif isinstance(item, annotated_types.Lt):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
@@ -238,7 +247,10 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 "lt (<) is not supported by DRF, using le (<=) instead",
                 UserWarning,
             )
-            drf_field_kwargs["max_value"] = item.lt
+            try:
+                drf_field_kwargs["max_value"] = decimal.Decimal(item.lt)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["max_value"] = item.lt
 
     return _convert_type(field.annotation, field, **drf_field_kwargs)
 
