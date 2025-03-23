@@ -251,3 +251,47 @@ def test_nested_manual_serializer():
     assert isinstance(job_serializer.fields["gender"], serializers.ChoiceField)
     assert isinstance(job_serializer.fields["title"], serializers.CharField)
     assert isinstance(job_serializer.fields["peers"], serializers.ListField)
+
+
+def test_drf_config_inheritance():
+    class Grandparent(pydantic.BaseModel):
+        name: str
+        age: int
+
+    class Parent(BaseModel, Grandparent):
+        drf_config = {"validate_pydantic": True}
+
+    class Child(Parent):
+        drf_config = {"validation_error": "pydantic"}
+
+    class Grandchild(Child):
+        drf_config = {"validate_pydantic": False}
+
+    assert not hasattr(Grandparent, "drf_config")
+
+    assert Parent.drf_config.get("validate_pydantic", False)
+    assert Parent.drf_config.get("validation_error", "") == "drf"
+
+    assert Child.drf_config.get("validate_pydantic", False)
+    assert Child.drf_config.get("validation_error", "") == "pydantic"
+
+    assert not Grandchild.drf_config.get("validate_pydantic", True)
+    assert Grandchild.drf_config.get("validation_error", "") == "pydantic"
+
+
+def test_drf_config_nested():
+    class Name(BaseModel):
+        first: str
+        last: str
+
+        drf_config = {"validate_pydantic": True}
+
+    class Person(BaseModel):
+        name: Name
+        age: int
+
+    assert Name.drf_config.get("validate_pydantic", False)
+    assert Name.drf_config.get("validation_error", "") == "drf"
+
+    assert not Person.drf_config.get("validate_pydantic", True)
+    assert Person.drf_config.get("validation_error", "") == "drf"
