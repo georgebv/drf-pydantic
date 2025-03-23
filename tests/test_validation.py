@@ -84,3 +84,44 @@ def test_pydantic_only_validation(
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+
+
+def test_inheritance():
+    class Grandparent(pydantic.BaseModel):
+        name: str
+        age: int
+
+        @pydantic.field_validator("name")
+        @classmethod
+        def validate_name(cls, v: typing.Any) -> str:
+            assert isinstance(v, str)
+            if v != "Billy":
+                raise ValueError("Wrong door")
+            return v
+
+    class Parent(BaseModel, Grandparent):
+        drf_config = {"validate_pydantic": True}
+
+    class Child(Parent):
+        drf_config = {"validation_error": "pydantic"}
+
+    class Grandchild(Child):
+        drf_config = {"validate_pydantic": False}
+
+    assert not hasattr(Grandparent, "drf_serializer")
+
+    data: dict[str, typing.Any] = {"name": "Van", "age": 69}
+
+    parent_serializer = Parent.drf_serializer(data={**data})
+    assert not parent_serializer.is_valid()
+    with pytest.raises(serializers.ValidationError):
+        parent_serializer.is_valid(raise_exception=True)
+
+    child_serializer = Child.drf_serializer(data={**data})
+    with pytest.raises(pydantic.ValidationError):
+        child_serializer.is_valid()
+    with pytest.raises(pydantic.ValidationError):
+        child_serializer.is_valid(raise_exception=True)
+
+    grandchild_serializer = Grandchild.drf_serializer(data={**data})
+    assert grandchild_serializer.is_valid(raise_exception=True)
