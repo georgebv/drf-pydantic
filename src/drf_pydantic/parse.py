@@ -2,6 +2,7 @@ import datetime
 import decimal
 import enum
 import inspect
+import re
 import typing
 import uuid
 import warnings
@@ -16,13 +17,14 @@ from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 from typing_extensions import TypeAliasType
 
+from drf_pydantic.base_serializer import DrfPydanticSerializer
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
 
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
 # Example: reuse Serializer for nested models
-SERIALIZER_REGISTRY: dict[type, type[serializers.Serializer]] = {}
+SERIALIZER_REGISTRY: dict[type, type[DrfPydanticSerializer]] = {}
 
 # https://pydantic-docs.helpmanual.io/usage/types
 # https://www.django-rest-framework.org/api-guide/fields
@@ -32,7 +34,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     bool: serializers.BooleanField,
     # String fields
     str: serializers.CharField,
-    pydantic.EmailStr: serializers.EmailField,
+    pydantic.EmailStr: serializers.EmailField,  # type: ignore
     # * Regex implemented as a special case
     # WARN (legacy) pydantic converts pydantic.HttpUrl to pydantic_core.Url
     pydantic_core.Url: serializers.URLField,
@@ -56,7 +58,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 
 def create_serializer_from_model(
     pydantic_model: typing.Type[pydantic.BaseModel],
-) -> type[serializers.Serializer]:
+) -> type[DrfPydanticSerializer]:
     """
     Create DRF Serializer from a pydantic model.
 
@@ -67,13 +69,13 @@ def create_serializer_from_model(
 
     Returns
     -------
-    type[rest_framework.serializers.Serializer]
+    type[DrfPydanticSerializer]
         DRF Serializer class.
 
     """
     if pydantic_model not in SERIALIZER_REGISTRY:
         errors: dict[str, str] = {}
-        fields: dict[str, type[serializers.Field]] = {}
+        fields: dict[str, serializers.Field] = {}
         for field_name, field in pydantic_model.model_fields.items():
             try:
                 fields[field_name] = _convert_field(field)
@@ -99,8 +101,8 @@ def create_serializer_from_model(
         assert len(fields) == len(pydantic_model.model_fields)
         SERIALIZER_REGISTRY[pydantic_model] = type(
             f"{pydantic_model.__name__}Serializer",
-            (serializers.Serializer,),
-            fields,
+            (DrfPydanticSerializer,),
+            {"_pydantic_model": pydantic_model, **fields},
         )
     return SERIALIZER_REGISTRY[pydantic_model]
 
@@ -172,22 +174,14 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 else drf_field_kwargs.get("max_length", None)
             )
         elif isinstance(item, MinLen):
-            drf_field_kwargs["min_length"] = (
-                max(
-                    drf_field_kwargs.get("min_length", float("-inf")),
-                    item.min_length,
-                )
-                if item.min_length is not None
-                else drf_field_kwargs.get("min_length", None)
+            drf_field_kwargs["min_length"] = max(
+                drf_field_kwargs.get("min_length", float("-inf")),
+                item.min_length,
             )
         elif isinstance(item, MaxLen):
-            drf_field_kwargs["max_length"] = (
-                min(
-                    drf_field_kwargs.get("max_length", float("inf")),
-                    item.max_length,
-                )
-                if item.max_length is not None
-                else drf_field_kwargs.get("max_length", None)
+            drf_field_kwargs["max_length"] = min(
+                drf_field_kwargs.get("max_length", float("inf")),
+                item.max_length,
             )
         # pydantic.Field constraints
         elif isinstance(item, PydanticMetadata):
@@ -257,9 +251,9 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
 
 
 def _convert_type(  # noqa: PLR0911
-    type_: typing.Union[typing.Type, TypeAliasType],
+    type_: typing.Union[typing.Type[typing.Any], TypeAliasType],
     field: typing.Optional[pydantic.fields.FieldInfo] = None,
-    **kwargs,
+    **kwargs: typing.Any,
 ) -> serializers.Field:
     """
     Convert type or type alias to DRF serializer Field.
@@ -298,7 +292,7 @@ def _convert_type(  # noqa: PLR0911
 
     # Type alias
     if isinstance(type_, TypeAliasType):
-        if type_ is pydantic.JsonValue:
+        if type_ is pydantic.JsonValue:  # type: ignore
             return serializers.JSONField(**kwargs)
         raise FieldConversionError(
             f"{type_.__name__} is not a supported TypeAliasType."
@@ -330,7 +324,7 @@ def _convert_type(  # noqa: PLR0911
             isinstance(item, pydantic.StringConstraints) and item.pattern is not None
             for item in field.metadata
         ):
-            regex_patterns: list[str] = []
+            regex_patterns: list[typing.Union[str, re.Pattern[str]]] = []
             for item in field.metadata:
                 if (
                     isinstance(item, pydantic.StringConstraints)
@@ -342,14 +336,14 @@ def _convert_type(  # noqa: PLR0911
                     f"Field has multiple regex patterns: {regex_patterns}"
                 )
             elif len(regex_patterns) == 1:
-                return serializers.RegexField(regex=item.pattern, **kwargs)
+                return serializers.RegexField(regex=regex_patterns[0], **kwargs)
         # Enum
         elif issubclass(type_, enum.Enum):
             return serializers.ChoiceField(
                 choices=[item.value for item in type_], **kwargs
             )
         # Known mapped scalar field
-        for key in [type, *getattr(type_, "__mro__", [])]:
+        for key in getattr(type_, "__mro__", []):
             try:
                 return FIELD_MAP[key](**kwargs)
             except KeyError:
