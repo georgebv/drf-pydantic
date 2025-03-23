@@ -187,7 +187,6 @@ wheels = [
 
 [[package]]
 name = "drf-pydantic"
-version = "2.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "djangorestframework" },
