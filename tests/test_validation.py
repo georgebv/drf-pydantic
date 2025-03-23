@@ -221,3 +221,29 @@ def test_validation_backpopulation():
     assert serializer.is_valid(raise_exception=True)
     assert serializer.data["name"] == "Jabroni"
     assert serializer.data["age"] == 69
+
+
+def test_validation_without_backpopulation():
+    class Person(BaseModel):
+        name: str
+        age: int
+
+        @pydantic.field_validator("name")
+        @classmethod
+        def validate_name(cls, v: typing.Any):
+            assert isinstance(v, str)
+            if v == "Van":
+                return "Jabroni"
+            return v
+
+        @pydantic.model_validator(mode="after")
+        def validate_person(self):
+            self.age = 69
+            return self
+
+        drf_config = {"validate_pydantic": True, "backpopulate_after_validation": False}
+
+    serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
+    assert serializer.is_valid(raise_exception=True)
+    assert serializer.data["name"] == "Van"
+    assert serializer.data["age"] == 68
