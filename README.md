@@ -21,6 +21,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
   - [General](#general)
+  - [Pydantic Validation](#pydantic-validation)
   - [Existing Models](#existing-models)
   - [Nested Models](#nested-models)
   - [Manual Serializer Configuration](#manual-serializer-configuration)
@@ -47,9 +48,7 @@ then `drf-pydantic` is for you :heart_eyes:.
 
 Translation between `pydantic` models and `DRF` serializers is done during class
 creation (e.g., when you first import the model). This means that there will be
-zero impact on the performance of your application
-(server instance or serverless session)
-when using `drf_pydantic` while your application is running.
+zero runtime impact when using `drf_pydantic` while your application is running.
 
 # Installation
 
@@ -95,6 +94,46 @@ my_value.is_valid(raise_exception=True)
 > [!NOTE]
 > Models created using `drf_pydantic` are fully idenditcal to those created by
 > `pydantic`. The only change is the addition of the `drf_serializer` attribute.
+
+## Pydantic Validation
+
+By default the generated serializer only uses DRF's validation; however, pydantic
+models are often more complex and their numerous validation rules cannot be
+translated to DRF. To enable pydantic validators to be run whenever the serializer
+validates some data, set the `validate_pydantic` parameter
+within `drf_config` property of your model to `True`:
+
+```python
+from drf_pydantic import BaseModel
+
+class MyModel(BaseModel):
+    name: str
+    addresses: list[str]
+
+    drf_config = {"validate_pydantic": True}
+```
+
+With this option enabled, any time you perform validation on your serializer
+(e.g., using `.is_valid`) its parent pydantic model will be validated too and its
+exception will be wrapped within the DRF's `ValidationError`. This makes your complext
+pydantic validation logic fully compatible with DRF views.
+
+If you want to raise the pydantic's `ValidationError` directly, you should
+set `validation_error` to `pydantic`:
+
+```python
+from drf_pydantic import BaseModel
+
+class MyModel(BaseModel):
+    name: str
+    addresses: list[str]
+
+    drf_config = {"validate_pydantic": True, "validation_error": "pydantic"}
+```
+
+> [!CAUTION]
+> Setting `validate_pydantic` to `pydantic` will break DRF views
+> because they will no longer be able to intelligently handle DRF's `ValidationError`.
 
 ## Existing Models
 
