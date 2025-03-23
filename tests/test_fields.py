@@ -56,6 +56,20 @@ class TestScalar:
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
 
+    def test_constrained_string_min_max_values(self):
+        """Must be ignored in"""
+
+        class Person(BaseModel):
+            first_name: str = pydantic.Field(gt="", lt="b")
+            last_name: str = pydantic.Field(ge="", le="b")
+
+        serializer = Person.drf_serializer()
+        for field_name in ["first_name", "last_name"]:
+            field = serializer.fields[field_name]  # type: ignore
+            assert isinstance(field, serializers.CharField)
+            for attr in ["min_value", "max_value"]:
+                assert not hasattr(field, attr)
+
     def test_constrained_list(self):
         class Person(BaseModel):
             name: list[int] = pydantic.Field(min_length=3, max_length=10)
