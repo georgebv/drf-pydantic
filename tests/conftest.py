@@ -7,7 +7,8 @@ from drf_pydantic.parse import SERIALIZER_REGISTRY
 
 
 @pytest.fixture(autouse=True, scope="function")
-def reset_serializers():
+def reset_serializer_registry():
+    """Purge cached serializers."""
     SERIALIZER_REGISTRY.clear()
     assert len(SERIALIZER_REGISTRY) == 0
 
