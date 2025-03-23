@@ -95,7 +95,8 @@ my_value.is_valid(raise_exception=True)
 
 > [!NOTE]
 > Models created using `drf_pydantic` are fully idenditcal to those created by
-> `pydantic`. The only change is the addition of the `drf_serializer` attribute.
+> `pydantic`. The only change is the addition of the `drf_serializer`
+> and `drf_config` attributes.
 
 ## Pydantic Validation
 
