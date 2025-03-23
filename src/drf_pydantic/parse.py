@@ -34,8 +34,9 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     str: serializers.CharField,
     pydantic.EmailStr: serializers.EmailField,
     # * Regex implemented as a special case
-    # WARN pydantic converts pydantic.HttpUrl to pydantic_core.Url
+    # WARN (legacy) pydantic converts pydantic.HttpUrl to pydantic_core.Url
     pydantic_core.Url: serializers.URLField,
+    pydantic.HttpUrl: serializers.URLField,
     uuid.UUID: serializers.UUIDField,
     # Numeric fields
     int: serializers.IntegerField,
@@ -368,8 +369,7 @@ def _convert_type(  # noqa: PLR0911
         if (
             len(type_.__args__) == 2
             and (is_scalar(type_.__args__[0]) and type_.__args__[1] is Ellipsis)
-            or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1]))
-        ):
+        ) or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1])):
             return serializers.ListField(
                 child=_convert_type(type_.__args__[0]),
                 allow_empty=True,

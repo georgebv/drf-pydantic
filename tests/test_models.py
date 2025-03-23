@@ -3,8 +3,9 @@ import typing
 
 import pydantic
 
-from drf_pydantic import BaseModel
 from rest_framework import serializers
+
+from drf_pydantic import BaseModel
 
 
 def test_model_with_multiple_fields():
