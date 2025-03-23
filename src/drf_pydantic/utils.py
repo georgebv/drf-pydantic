@@ -12,7 +12,7 @@ else:
 
     try:
         from types import UnionType
-    except ImportError:
+    except ImportError:  # pragma: no cover
         UnionType = None
 
 
