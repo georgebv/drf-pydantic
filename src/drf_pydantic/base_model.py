@@ -5,8 +5,10 @@ import pydantic
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
 )
-from pydantic._internal._model_construction import PydanticGenericMetadata
-from rest_framework import serializers
+from pydantic._internal._model_construction import (
+    PydanticGenericMetadata,  # type: ignore
+)
+from rest_framework import serializers  # type: ignore
 from typing_extensions import dataclass_transform
 
 from drf_pydantic.parse import create_serializer_from_model

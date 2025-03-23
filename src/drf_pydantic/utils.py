@@ -1,22 +1,28 @@
 from types import GenericAlias
-from typing import Optional, Type, Union, _GenericAlias, _UnionGenericAlias
+from typing import TYPE_CHECKING, Any, Optional, Type
 
-# Union syntax using pipe (e.g., int | str) is only available in Python 3.10+
-try:
+if TYPE_CHECKING:
     from types import UnionType
-except ImportError:
-    UnionType = None
+
+    _UnionGenericAlias = UnionType
+    _GenericAlias = GenericAlias
+else:
+    # Union syntax using pipe (e.g., int | str) is only available in Python 3.10+
+    from typing import _GenericAlias, _UnionGenericAlias
+
+    try:
+        from types import UnionType
+    except ImportError:
+        UnionType = None
 
 
-def get_union_members(
-    type_: Union[UnionType, _UnionGenericAlias],
-) -> Optional[tuple[Type, ...]]:
+def get_union_members(type_: Any) -> Optional[tuple[Type[Any], ...]]:
     """
     Get union members from a union type.
 
     Parameters
     ----------
-    type_ : typing.Union
+    type_ : Any
         Union type.
 
     Returns
@@ -26,14 +32,14 @@ def get_union_members(
         None if type_ is not a union type.
 
     """
-    if isinstance(type_, _UnionGenericAlias) or (
-        UnionType is not None and isinstance(type_, UnionType)
+    if isinstance(type_, _UnionGenericAlias) or (  # type: ignore
+        UnionType is not None and isinstance(type_, UnionType)  # type: ignore
     ):
         return type_.__args__
     return None
 
 
-def is_scalar(type_: Type) -> bool:
+def is_scalar(type_: Type[Any]) -> bool:
     """
     Check if type is a scalar type.
 
