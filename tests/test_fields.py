@@ -57,11 +57,12 @@ class TestScalar:
         assert serializer.fields["name"].max_length == 10
 
     def test_constrained_string_min_max_values(self):
-        """Must be ignored in"""
+        """Must be ignored in non-numeric fields"""
+        with pytest.warns(UserWarning, match=r"is not supported by DRF"):
 
-        class Person(BaseModel):
-            first_name: str = pydantic.Field(gt="", lt="b")
-            last_name: str = pydantic.Field(ge="", le="b")
+            class Person(BaseModel):
+                first_name: str = pydantic.Field(gt="", lt="b")
+                last_name: str = pydantic.Field(ge="", le="b")
 
         serializer = Person.drf_serializer()
         for field_name in ["first_name", "last_name"]:

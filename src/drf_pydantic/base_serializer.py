@@ -43,7 +43,7 @@ class DrfPydanticSerializer(serializers.Serializer):
                                 "type": error["type"],
                             }
                         )
-                    except:  # noqa
+                    except:  # noqa pragma: no cover
                         message = f"{error['msg']} (type={error['type']})"
                     if (
                         len(error["loc"]) == 0
