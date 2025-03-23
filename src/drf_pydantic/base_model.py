@@ -15,7 +15,7 @@ from drf_pydantic.parse import create_serializer_from_model
 @dataclass_transform(kw_only_default=True, field_specifiers=(pydantic.Field,))
 class ModelMetaclass(PydanticModelMetaclass, type):
     def __new__(
-        mcs,  # noqa: N804
+        mcs,
         cls_name: str,
         bases: tuple[type[Any], ...],
         namespace: dict[str, Any],

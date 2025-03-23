@@ -1,15 +1,15 @@
-[tool.poetry]
+[project]
 name = "drf-pydantic"
 version = "2.5.1"
 description = "Use pydantic with the Django REST framework"
-license = "MIT"
-authors = ["George Bocharov <bocharovgeorgii@gmail.com>"]
 readme = "README.md"
-homepage = "https://github.com/georgebv/drf-pydantic"
-repository = "https://github.com/georgebv/drf-pydantic"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "George Bocharov", email = "bocharovgeorgii@gmail.com" }]
 keywords = ["django", "drf", "pydantic", "typing", "rest", "api"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -18,32 +18,34 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Typing :: Typed"
+    "Typing :: Typed",
 ]
-packages = [
-    { include = "drf_pydantic", from = "src" }
-]
+urls = { "homepage" = "https://github.com/georgebv/drf-pydantic", "github" = "https://github.com/georgebv/drf-pydantic" }
+dependencies = ["djangorestframework>=3.13.0", "pydantic[email]>=2.0.0"]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-pydantic = {extras = ["email"], version = "^2.0.0"}
-djangorestframework = "^3.13.0"
-
-[tool.poetry.group.development.dependencies]
-pre-commit = "^3.6.0"
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.4.4"
-pytest-cov = "^4.1.0"
-
-[tool.poetry.group.lint.dependencies]
-ruff = "^0.1.13"
-mypy = "^1.8.0"
+[dependency-groups]
+dev = ["pre-commit>=4.2.0"]
+lint = ["mypy>=1.15.0", "ruff>=0.11.2"]
+test = ["pytest>=8.3.5", "pytest-cov>=6.0.0"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["README.md", "LICENSE", "src/**/*.py", "src/*/py.typed"]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
 
 [tool.ruff]
 # https://docs.astral.sh/ruff/rules
@@ -73,7 +75,8 @@ ignore = [
     # Bandit: assert statement
     "S101",
     # `subprocess` call: check for execution of untrusted input
-    "S603", "S607",
+    "S603",
+    "S607",
     # `open()` should be replaced by `Path.open()`
     "PTH123",
     # Magic value used in comparison
@@ -95,9 +98,7 @@ lines-between-types = 1
 
 [tool.pytest.ini_options]
 addopts = "-v --cov=drf_pydantic --cov-report=term --cov-report=xml --cov-report=html"
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [

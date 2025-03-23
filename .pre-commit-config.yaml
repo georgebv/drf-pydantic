@@ -10,7 +10,7 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev: v0.11.2
     hooks:
       - id: ruff
       - id: ruff-format
@@ -18,7 +18,7 @@ repos:
     hooks:
       - id: ruff-sort-imports
         name: ruff-sort-imports
-        entry: poetry run ruff check --select I .
+        entry: uv run ruff check --select I .
         language: system
         pass_filenames: false
         types: [python]

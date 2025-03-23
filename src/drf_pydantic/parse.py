@@ -34,8 +34,9 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     str: serializers.CharField,
     pydantic.EmailStr: serializers.EmailField,
     # * Regex implemented as a special case
-    # WARN pydantic converts pydantic.HttpUrl to pydantic_core.Url
+    # WARN (legacy) pydantic converts pydantic.HttpUrl to pydantic_core.Url
     pydantic_core.Url: serializers.URLField,
+    pydantic.HttpUrl: serializers.URLField,
     uuid.UUID: serializers.UUIDField,
     # Numeric fields
     int: serializers.IntegerField,
@@ -212,7 +213,10 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 raise FieldConversionError(
                     "Field has multiple conflicting min_value constraints"
                 )
-            drf_field_kwargs["min_value"] = item.ge
+            try:
+                drf_field_kwargs["min_value"] = decimal.Decimal(item.ge)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["min_value"] = item.ge
         elif isinstance(item, annotated_types.Gt):
             if drf_field_kwargs.get("min_value", None) is not None:
                 raise FieldConversionError(
@@ -222,13 +226,19 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 "gt (>) is not supported by DRF, using ge (>=) instead",
                 UserWarning,
             )
-            drf_field_kwargs["min_value"] = item.gt
+            try:
+                drf_field_kwargs["min_value"] = decimal.Decimal(item.gt)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["min_value"] = item.gt
         elif isinstance(item, annotated_types.Le):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
                     "Field has multiple conflicting max_value constraints"
                 )
-            drf_field_kwargs["max_value"] = item.le
+            try:
+                drf_field_kwargs["max_value"] = decimal.Decimal(item.le)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["max_value"] = item.le
         elif isinstance(item, annotated_types.Lt):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
@@ -238,7 +248,10 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 "lt (<) is not supported by DRF, using le (<=) instead",
                 UserWarning,
             )
-            drf_field_kwargs["max_value"] = item.lt
+            try:
+                drf_field_kwargs["max_value"] = decimal.Decimal(item.lt)  # type: ignore
+            except (TypeError, decimal.InvalidOperation):
+                drf_field_kwargs["max_value"] = item.lt
 
     return _convert_type(field.annotation, field, **drf_field_kwargs)
 
@@ -356,8 +369,7 @@ def _convert_type(  # noqa: PLR0911
         if (
             len(type_.__args__) == 2
             and (is_scalar(type_.__args__[0]) and type_.__args__[1] is Ellipsis)
-            or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1]))
-        ):
+        ) or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1])):
             return serializers.ListField(
                 child=_convert_type(type_.__args__[0]),
                 allow_empty=True,

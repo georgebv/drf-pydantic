@@ -9,10 +9,11 @@ import uuid
 import pydantic
 import pytest
 
-from drf_pydantic import BaseModel
-from drf_pydantic.errors import ModelConversionError
 from rest_framework import serializers
 from typing_extensions import TypeAliasType
+
+from drf_pydantic import BaseModel
+from drf_pydantic.errors import ModelConversionError
 
 
 class TestScalar:
@@ -401,8 +402,7 @@ class TestScalar:
     def test_unsupported_type_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
 
-            class CustomType:
-                ...
+            class CustomType: ...
 
             class Person(BaseModel):
                 name: CustomType
@@ -529,8 +529,7 @@ class TestComposite:
         with pytest.raises(ModelConversionError) as exc_info:
             T = typing.TypeVar("T")
 
-            class CustomCollection(typing.Generic[T]):
-                ...
+            class CustomCollection(typing.Generic[T]): ...
 
             class Person(BaseModel):
                 name: CustomCollection[str]
