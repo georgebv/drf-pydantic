@@ -131,8 +131,13 @@ class MyModel(BaseModel):
     drf_config = {"validate_pydantic": True, "validation_error": "pydantic"}
 ```
 
+> [!WARNING]
+> When a model would be invalid from both DRF's and pydantic's perspectives,
+> a DRF value will be raised regardless of what `validation_error` is set to
+> because DRF validation always runs first.
+
 > [!CAUTION]
-> Setting `validate_pydantic` to `pydantic` will break DRF views
+> Setting `validation_error` to `pydantic` will break DRF views
 > because they will no longer be able to intelligently handle DRF's `ValidationError`.
 
 ## Existing Models
