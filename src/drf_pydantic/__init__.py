@@ -1,6 +1,6 @@
 __all__ = [
     "BaseModel",
 ]
-__version__ = "2.5.1"
+__version__ = "2.6.0"
 
 from .base_model import BaseModel
