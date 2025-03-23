@@ -201,7 +201,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
                 drf_field_kwargs["max_digits"] = getattr(item, "max_digits")
             if getattr(item, "decimal_places", None) is not None:
                 drf_field_kwargs["decimal_places"] = getattr(item, "decimal_places")
-        # Numeric constraints
+        # Numeric constraints (in DRF min/max_value is only supported for numeric types)
         elif isinstance(item, annotated_types.Ge):
             if drf_field_kwargs.get("min_value", None) is not None:
                 raise FieldConversionError(
@@ -210,7 +210,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
             try:
                 drf_field_kwargs["min_value"] = decimal.Decimal(item.ge)  # type: ignore
             except (TypeError, decimal.InvalidOperation):
-                drf_field_kwargs["min_value"] = item.ge
+                pass
         elif isinstance(item, annotated_types.Gt):
             if drf_field_kwargs.get("min_value", None) is not None:
                 raise FieldConversionError(
@@ -223,7 +223,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
             try:
                 drf_field_kwargs["min_value"] = decimal.Decimal(item.gt)  # type: ignore
             except (TypeError, decimal.InvalidOperation):
-                drf_field_kwargs["min_value"] = item.gt
+                pass
         elif isinstance(item, annotated_types.Le):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
@@ -232,7 +232,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
             try:
                 drf_field_kwargs["max_value"] = decimal.Decimal(item.le)  # type: ignore
             except (TypeError, decimal.InvalidOperation):
-                drf_field_kwargs["max_value"] = item.le
+                pass
         elif isinstance(item, annotated_types.Lt):
             if drf_field_kwargs.get("max_value", None) is not None:
                 raise FieldConversionError(
@@ -245,7 +245,7 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
             try:
                 drf_field_kwargs["max_value"] = decimal.Decimal(item.lt)  # type: ignore
             except (TypeError, decimal.InvalidOperation):
-                drf_field_kwargs["max_value"] = item.lt
+                pass
 
     return _convert_type(field.annotation, field, **drf_field_kwargs)
 

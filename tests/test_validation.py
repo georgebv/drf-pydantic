@@ -1,3 +1,4 @@
+import json
 import typing
 
 import pydantic
@@ -84,3 +85,113 @@ def test_pydantic_only_validation(
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+
+
+def test_inheritance():
+    class Grandparent(pydantic.BaseModel):
+        name: str
+        age: int
+
+        @pydantic.field_validator("name")
+        @classmethod
+        def validate_name(cls, v: typing.Any) -> str:
+            assert isinstance(v, str)
+            if v != "Billy":
+                raise ValueError("Wrong door")
+            return v
+
+    class Parent(BaseModel, Grandparent):
+        drf_config = {"validate_pydantic": True}
+
+    class Child(Parent):
+        drf_config = {"validation_error": "pydantic"}
+
+    class Grandchild(Child):
+        drf_config = {"validate_pydantic": False}
+
+    assert not hasattr(Grandparent, "drf_serializer")
+
+    data: dict[str, typing.Any] = {"name": "Van", "age": 69}
+
+    parent_serializer = Parent.drf_serializer(data={**data})
+    assert not parent_serializer.is_valid()
+    with pytest.raises(serializers.ValidationError):
+        parent_serializer.is_valid(raise_exception=True)
+
+    child_serializer = Child.drf_serializer(data={**data})
+    with pytest.raises(pydantic.ValidationError):
+        child_serializer.is_valid()
+    with pytest.raises(pydantic.ValidationError):
+        child_serializer.is_valid(raise_exception=True)
+
+    grandchild_serializer = Grandchild.drf_serializer(data={**data})
+    assert grandchild_serializer.is_valid(raise_exception=True)
+
+
+def test_validation_error_translation_field_errors():
+    class Person(BaseModel):
+        name: str
+        age: int
+
+        @pydantic.field_validator("name")
+        @classmethod
+        def validate_name(cls, v: typing.Any):
+            assert isinstance(v, str)
+            if v == "Van":
+                raise ValueError("Wrong door, Jabroni!")
+            return v
+
+        @pydantic.field_validator("age")
+        @classmethod
+        def validate_age(cls, v: typing.Any):
+            assert isinstance(v, int)
+            assert v == 69
+            return v
+
+        drf_config = {"validate_pydantic": True}
+
+    serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
+    assert not serializer.is_valid()
+    try:
+        serializer.is_valid(raise_exception=True)
+    except serializers.ValidationError as exc:
+        assert len(exc.detail.keys()) == 3
+
+        assert len(exc.detail["non_field_errors"]) == 0
+
+        assert len(exc.detail["name"]) == 1
+        name_error = json.loads(exc.detail["name"][0])
+        assert name_error["loc"] == ["name"]
+        assert "Wrong door, Jabroni!" in name_error["msg"]
+
+        assert len(exc.detail["age"]) == 1
+        age_error = json.loads(exc.detail["age"][0])
+        assert age_error["loc"] == ["age"]
+        assert "Assertion failed" in age_error["msg"]
+
+
+def test_validation_error_translation_non_field_errors():
+    class Person(BaseModel):
+        name: str
+        age: int
+
+        @pydantic.model_validator(mode="after")
+        def validate_person(self):
+            if self.name == "Van":
+                raise ValueError("Wrong door, Jabroni!")
+            return self
+
+        drf_config = {"validate_pydantic": True}
+
+    serializer = Person.drf_serializer(data={"name": "Van", "age": 69})
+    assert not serializer.is_valid()
+    try:
+        serializer.is_valid(raise_exception=True)
+    except serializers.ValidationError as exc:
+        assert len(exc.detail.keys()) == 1
+
+        assert len(exc.detail["non_field_errors"]) == 1
+
+        error = json.loads(exc.detail["non_field_errors"][0])
+        assert error["loc"] == []
+        assert "Wrong door, Jabroni!" in error["msg"]
