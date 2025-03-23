@@ -17,13 +17,14 @@ from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 from typing_extensions import TypeAliasType
 
+from drf_pydantic.base_serializer import DrfPydanticSerializer
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
 
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
 # Example: reuse Serializer for nested models
-SERIALIZER_REGISTRY: dict[type, type[serializers.Serializer]] = {}
+SERIALIZER_REGISTRY: dict[type, type[DrfPydanticSerializer]] = {}
 
 # https://pydantic-docs.helpmanual.io/usage/types
 # https://www.django-rest-framework.org/api-guide/fields
@@ -57,7 +58,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 
 def create_serializer_from_model(
     pydantic_model: typing.Type[pydantic.BaseModel],
-) -> type[serializers.Serializer]:
+) -> type[DrfPydanticSerializer]:
     """
     Create DRF Serializer from a pydantic model.
 
@@ -68,7 +69,7 @@ def create_serializer_from_model(
 
     Returns
     -------
-    type[rest_framework.serializers.Serializer]
+    type[DrfPydanticSerializer]
         DRF Serializer class.
 
     """
@@ -100,8 +101,8 @@ def create_serializer_from_model(
         assert len(fields) == len(pydantic_model.model_fields)
         SERIALIZER_REGISTRY[pydantic_model] = type(
             f"{pydantic_model.__name__}Serializer",
-            (serializers.Serializer,),
-            fields,
+            (DrfPydanticSerializer,),
+            {"_pydantic_model": pydantic_model, **fields},
         )
     return SERIALIZER_REGISTRY[pydantic_model]
 

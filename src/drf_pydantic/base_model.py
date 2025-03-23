@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Literal, Optional, TypedDict
 
 import pydantic
 
@@ -8,9 +8,9 @@ from pydantic._internal._model_construction import (
 from pydantic._internal._model_construction import (
     PydanticGenericMetadata,  # type: ignore
 )
-from rest_framework import serializers  # type: ignore
 from typing_extensions import dataclass_transform
 
+from drf_pydantic.base_serializer import DrfPydanticSerializer
 from drf_pydantic.parse import create_serializer_from_model
 
 
@@ -46,9 +46,37 @@ class ModelMetaclass(PydanticModelMetaclass, type):
                 "drf_serializer",
                 create_serializer_from_model(cls),
             )
+
+        # Set drf_config by merging properties with the following priority:
+        # 1. Pydanitc model itself (cls)
+        # 2. Parent class of the pydantic model (cls)
+        # 3. Default values
+        drf_config = DrfConfigDict(validate_pydantic=False, validation_error="drf")
+        for base in cls.__mro__[:2][::-1]:
+            drf_config.update(getattr(base, "drf_config", DrfConfigDict()))
+        setattr(cls, "drf_config", drf_config)
+
         return cls
+
+
+class DrfConfigDict(TypedDict, total=False):
+    validate_pydantic: bool
+    """
+    Whether to validate parent pydantic model on drf_serializer validation.
+
+    By default is False.
+
+    """
+    validation_error: Literal["drf", "pydantic"]
+    """
+    What error to raise if pydantic model validation raises its ValidationError.
+
+    By default 'drf'.
+
+    """
 
 
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
     # Populated by the metaclass or manually set by the user
-    drf_serializer: ClassVar[type[serializers.Serializer]]
+    drf_serializer: ClassVar[type[DrfPydanticSerializer]]
+    drf_config: ClassVar[DrfConfigDict]
