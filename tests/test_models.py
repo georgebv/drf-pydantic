@@ -265,18 +265,24 @@ def test_drf_config_inheritance():
         drf_config = {"validation_error": "pydantic"}
 
     class Grandchild(Child):
-        drf_config = {"validate_pydantic": False}
+        drf_config = {
+            "validate_pydantic": False,
+            "backpopulate_after_validation": False,
+        }
 
     assert not hasattr(Grandparent, "drf_config")
 
     assert Parent.drf_config.get("validate_pydantic", False)
     assert Parent.drf_config.get("validation_error", "") == "drf"
+    assert Parent.drf_config.get("backpopulate_after_validation", False)
 
     assert Child.drf_config.get("validate_pydantic", False)
     assert Child.drf_config.get("validation_error", "") == "pydantic"
+    assert Child.drf_config.get("backpopulate_after_validation", False)
 
     assert not Grandchild.drf_config.get("validate_pydantic", True)
     assert Grandchild.drf_config.get("validation_error", "") == "pydantic"
+    assert not Grandchild.drf_config.get("backpopulate_after_validation", True)
 
 
 def test_drf_config_nested():
