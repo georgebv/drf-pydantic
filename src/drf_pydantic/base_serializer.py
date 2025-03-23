@@ -68,7 +68,7 @@ class DrfPydanticSerializer(serializers.Serializer):
             for key in return_value:
                 try:
                     return_value[key] = getattr(validated_pydantic_model, key)
-                except AttributeError:
+                except AttributeError:  # pragma: no cover
                     continue
 
         return return_value
