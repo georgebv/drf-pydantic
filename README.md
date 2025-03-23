@@ -158,7 +158,7 @@ my_serializer.is_valid()
 print(my_serializer.data)  # {"name": "Van Herrington", "addresses": []}
 ```
 
-This is very useful when you dynamically modify model instance values within your
+This is very useful when you dynamically modify field values within your
 pydantic validators. You can disable this behavior by setting
 `"backpopulate_after_validation": False`:
 
@@ -200,8 +200,9 @@ my_serializer.is_valid()  # this will raise pydantic.ValidationError
 ```
 
 > [!NOTE]
-> When a model would be invalid from both DRF's and pydantic's perspectives,
-> a DRF value will be raised regardless of what `validation_error` is set to
+> When a model would be invalid from both DRF's and pydantic's perspectives and
+> and exceptions are enabled (`.is_valid(raise_exception=True)`),
+> DRF's `ValueError` will be raised regardless of what `validation_error` is set to
 > because DRF validation always runs first.
 
 > [!CAUTION]
