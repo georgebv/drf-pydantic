@@ -30,5 +30,7 @@ jobs:
         run: uv python install
       - name: Install the project
         run: uv sync --all-groups
+      - name: Build
+        run: uv build
       - name: Publish
         run: uv publish --token ${{ secrets.PYPI_TOKEN }}
