@@ -142,6 +142,61 @@ def test_nested_model(
         assert maybe_valid_serializer.is_valid(raise_exception=True)
 
 
+@pytest.mark.parametrize(
+    ["job_base"],
+    [(pydantic.BaseModel,), (BaseModel,)],
+    ids=["pydantic_base", "drf_pydantic_base"],
+)
+def test_list_of_nested_models(
+    validate_pydantic: bool,
+    raise_pydantic_error: bool,
+    job_base: type[pydantic.BaseModel],
+):
+    class Job(job_base):  # type: ignore
+        title: str
+        salary: float
+
+        @pydantic.field_validator("salary")
+        @classmethod
+        def validate_salary(cls, v: typing.Any) -> float:
+            assert isinstance(v, float)
+            if v < 9000:
+                raise ValueError("Too low")
+            return v
+
+    class Person(BaseModel):
+        name: str
+        jobs: list[Job]
+
+        drf_config = {
+            "validate_pydantic": validate_pydantic,
+            "validation_error": "pydantic" if raise_pydantic_error else "drf",
+        }
+
+    valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "jobs": [{"title": "DM", "salary": 9000}]},
+    )
+    assert valid_serializer.is_valid(raise_exception=True)
+
+    maybe_valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "jobs": [{"title": "DM", "salary": 300}]},
+    )
+    if validate_pydantic:
+        if raise_pydantic_error:
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid()
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+        else:
+            assert not maybe_valid_serializer.is_valid()
+            with pytest.raises(serializers.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+    else:
+        # Without pydantic DRF doesn't know about field_validator
+        assert maybe_valid_serializer.is_valid()
+        assert maybe_valid_serializer.is_valid(raise_exception=True)
+
+
 def test_inheritance():
     class Grandparent(pydantic.BaseModel):
         name: str
