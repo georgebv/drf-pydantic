@@ -36,16 +36,6 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             _create_model_module,
             **kwargs,
         )
-        # Create serializer only if it's not already set by the user
-        # Serializer should never be inherited from the parent classes
-        if not hasattr(cls, "drf_serializer") or getattr(cls, "drf_serializer") in (
-            getattr(base, "drf_serializer", None) for base in cls.__mro__[1:]
-        ):
-            setattr(
-                cls,
-                "drf_serializer",
-                create_serializer_from_model(cls),
-            )
 
         # Set drf_config by merging properties with the following priority:
         # 1. Pydanitc model itself (cls)
@@ -59,6 +49,17 @@ class ModelMetaclass(PydanticModelMetaclass, type):
         for base in cls.__mro__[:2][::-1]:
             drf_config.update(getattr(base, "drf_config", DrfConfigDict()))
         setattr(cls, "drf_config", drf_config)
+
+        # Create serializer only if it's not already set by the user
+        # Serializer should never be inherited from the parent classes
+        if not hasattr(cls, "drf_serializer") or getattr(cls, "drf_serializer") in (
+            getattr(base, "drf_serializer", None) for base in cls.__mro__[1:]
+        ):
+            setattr(
+                cls,
+                "drf_serializer",
+                create_serializer_from_model(cls, drf_config),
+            )
 
         return cls
 

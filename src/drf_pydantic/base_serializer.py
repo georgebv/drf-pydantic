@@ -1,6 +1,6 @@
 import json
 
-from typing import TYPE_CHECKING, Any, Type, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Type, TypeVar
 
 import pydantic
 
@@ -8,28 +8,29 @@ from rest_framework import serializers  # type: ignore
 from rest_framework.settings import api_settings  # type: ignore
 
 if TYPE_CHECKING:
-    from drf_pydantic.base_model import BaseModel
+    from drf_pydantic.base_model import DrfConfigDict
 
 T = TypeVar("T", bound=dict[str, Any])
 
 
 class DrfPydanticSerializer(serializers.Serializer):
-    _pydantic_model: "Type[BaseModel]"
+    _pydantic_model: ClassVar[Type[pydantic.BaseModel]]
+    _drf_config: ClassVar["DrfConfigDict"]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)  # type: ignore
 
     def validate(self, attrs: T) -> T:
         return_value = super().validate(attrs)  # type: ignore
-        if not self._pydantic_model.drf_config.get("validate_pydantic"):
+        if not self._drf_config.get("validate_pydantic"):
             return return_value
 
         try:
             validated_pydantic_model = self._pydantic_model(**attrs)
         except pydantic.ValidationError as exc:
-            if self._pydantic_model.drf_config.get("validation_error") == "pydantic":
+            if self._drf_config.get("validation_error") == "pydantic":
                 raise exc
-            assert self._pydantic_model.drf_config.get("validation_error") == "drf"
+            assert self._drf_config.get("validation_error") == "drf"
 
             field_errors: dict[str, list[str]] = {}
             non_field_errors: list[str] = []
@@ -64,7 +65,7 @@ class DrfPydanticSerializer(serializers.Serializer):
                 }
             ) from exc
 
-        if self._pydantic_model.drf_config.get("backpopulate_after_validation"):
+        if self._drf_config.get("backpopulate_after_validation"):
             for key in return_value:
                 try:
                     return_value[key] = getattr(validated_pydantic_model, key)
