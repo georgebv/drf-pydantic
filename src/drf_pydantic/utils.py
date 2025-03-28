@@ -1,7 +1,7 @@
 import inspect
 
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 if TYPE_CHECKING:
     from types import UnionType
@@ -84,16 +84,8 @@ def get_attr_owner(cls: Type[Any], attr: str) -> Type[Any]:
         raise AttributeError(f"Class {cls.__class__.__name__} doesn't have {attr}")
 
     for base in inspect.getmro(cls):
-        if hasattr(base, "__dict__"):
-            if attr in base.__dict__:
-                return base
-        else:
-            slots = cast(Union[Tuple[str, ...], str], getattr(base, "__slots__"))
-            if isinstance(slots, str):
-                if slots == attr:
-                    return base
-            elif attr in slots:
-                return base
+        if attr in base.__dict__:
+            return base
 
     # We know cls has attr, so this line should never be reached; for type checker
     raise RuntimeError  # pragma: no cover
