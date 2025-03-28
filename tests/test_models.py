@@ -208,6 +208,34 @@ def test_invalid_manual_serializer():
             drf_serializer = object
 
 
+def test_manual_serializer_warnings():
+    with pytest.warns(UserWarning, match=r"should be replaced"):
+
+        class MySerializer1(serializers.Serializer):
+            name = serializers.CharField()
+            age = serializers.IntegerField()
+
+        class Person1(BaseModel):
+            name: str
+            age: int
+
+            drf_serializer = MySerializer1
+
+    with pytest.warns(UserWarning, match=r"doesn't match expected class"):
+
+        class MySerializer2(DrfPydanticSerializer):
+            name = serializers.CharField()
+            age = serializers.IntegerField()
+
+            _pydantic_model = BaseModel
+
+        class Person2(BaseModel):
+            name: str
+            age: int
+
+            drf_serializer = MySerializer2
+
+
 def test_manual_serializer_inheritance():
     """Ensure that manual serializer is not inherited from the parent class."""
 
