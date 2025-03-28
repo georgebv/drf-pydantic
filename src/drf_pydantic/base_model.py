@@ -1,4 +1,7 @@
-from typing import Any, ClassVar, Literal, Optional, TypedDict
+import inspect
+import warnings
+
+from typing import Any, ClassVar, Optional
 
 import pydantic
 
@@ -8,10 +11,13 @@ from pydantic._internal._model_construction import (
 from pydantic._internal._model_construction import (
     PydanticGenericMetadata,  # type: ignore
 )
+from rest_framework import serializers  # type: ignore
 from typing_extensions import dataclass_transform
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
+from drf_pydantic.config import DrfConfigDict
 from drf_pydantic.parse import create_serializer_from_model
+from drf_pydantic.utils import get_attr_owner
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(pydantic.Field,))
@@ -36,16 +42,6 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             _create_model_module,
             **kwargs,
         )
-        # Create serializer only if it's not already set by the user
-        # Serializer should never be inherited from the parent classes
-        if not hasattr(cls, "drf_serializer") or getattr(cls, "drf_serializer") in (
-            getattr(base, "drf_serializer", None) for base in cls.__mro__[1:]
-        ):
-            setattr(
-                cls,
-                "drf_serializer",
-                create_serializer_from_model(cls),
-            )
 
         # Set drf_config by merging properties with the following priority:
         # 1. Pydanitc model itself (cls)
@@ -60,39 +56,51 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             drf_config.update(getattr(base, "drf_config", DrfConfigDict()))
         setattr(cls, "drf_config", drf_config)
 
+        # Serializer was set by the user (is already present and is not inherited)
+        if hasattr(cls, "drf_serializer") and cls is get_attr_owner(
+            cls, "drf_serializer"
+        ):
+            drf_serializer = getattr(cls, "drf_serializer")
+            if not inspect.isclass(drf_serializer):
+                raise TypeError(
+                    f"drf_serializer must be a class, check class {cls.__name__}"
+                )
+            if not issubclass(drf_serializer, serializers.Serializer):
+                raise TypeError(
+                    f"{drf_serializer.__name__} is not a valid type "
+                    f"for drf_serializer. Check class {cls.__name__}"
+                )
+            if not issubclass(drf_serializer, DrfPydanticSerializer):
+                warnings.warn(
+                    (
+                        f"custom drf_serializer on model {cls.__name__} "
+                        f"should be replaced with an instace of "
+                        f"drf_pydantic.DrfPydanticSerializer "
+                        f"(currently is {drf_serializer.__name__})"
+                    ),
+                    UserWarning,
+                )
+            if getattr(drf_serializer, "_pydantic_model", cls) is not cls:
+                warnings.warn(
+                    (
+                        f"_pydantic_model on model {cls.__name__} doesn't match "
+                        f"expected class {cls.__name__}: "
+                        f"{getattr(drf_serializer, '_pydantic_model').__name__}"
+                    ),
+                    UserWarning,
+                )
+            setattr(drf_serializer, "_pydantic_model", cls)
+            if not hasattr(drf_serializer, "_drf_config"):
+                setattr(drf_serializer, "_drf_config", drf_config)
+        # Serializer not declared on cls directly (missing or inherited)
+        else:
+            setattr(
+                cls,
+                "drf_serializer",
+                create_serializer_from_model(cls, drf_config),
+            )
+
         return cls
-
-
-class DrfConfigDict(TypedDict, total=False):
-    validate_pydantic: bool
-    """
-    Whether to validate parent pydantic model on drf_serializer validation.
-
-    By default is False.
-
-    """
-    validation_error: Literal["drf", "pydantic"]
-    """
-    What error to raise if pydantic model validation raises its ValidationError.
-
-    !!! CAUTION !!!
-    This will make the generated DRF serializer potentially
-    incompatible with DRF views which expect DRF's ValidationError.
-
-    By default 'drf'.
-    'validate_pydantic' must be True for this to have any effect.
-
-    """
-    backpopulate_after_validation: bool
-    """
-    Update values in the DRF serializer after pydantic model validation.
-
-    Useful if your pydantic validators modify model fields' values.
-
-    By default True.
-    'validate_pydantic' must be True for this to have any effect.
-
-    """
 
 
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):

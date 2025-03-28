@@ -311,11 +311,11 @@ inherit a user-defined `drf_serializer` attribute.
 `Company` will use `Person`'s manually defined serializer for its `ceo` field.
 
 ```python
-from drf_pydantic import BaseModel
-from rest_framework.serializers import CharField, IntegerField, Serializer
+from drf_pydantic import BaseModel, DrfPydanticSerializer
+from rest_framework.serializers import CharField, IntegerField
 
 
-class MyCustomSerializer(Serializer):
+class MyCustomSerializer(DrfPydanticSerializer):
     name = CharField(allow_null=False, required=True)
     age = IntegerField(allow_null=False, required=True)
 
@@ -334,6 +334,14 @@ class Employee(Person):
 class Company(BaseModel):
     ceo: Person
 ```
+
+> [!IMPORTANT]
+> Added in version `v2.6.0`
+>
+> Manual `drf_serializer` must have base class of `DrfPydanticSerializer`
+> in order for [Pydantic Validation](#pydantic-validation) to work properly.
+> You can still use standard `Serializer` from `rest_framework`, but automatic
+> pydantic model validation will not work consistently and you will get a warning.
 
 # Additional Properties
 

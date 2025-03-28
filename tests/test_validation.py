@@ -6,13 +6,13 @@ import pytest
 
 from rest_framework import serializers
 
-from drf_pydantic import BaseModel
+from drf_pydantic import BaseModel, DrfPydanticSerializer
 
 
 @pytest.fixture(
     scope="function",
     params=[False, True],
-    ids=["without_pydantic", "with_pydantic"],
+    ids=["no_validate_pydantic", "validate_pydantic"],
 )
 def validate_pydantic(request: pytest.FixtureRequest) -> bool:
     return request.param
@@ -87,6 +87,116 @@ def test_pydantic_only_validation(
         assert maybe_valid_serializer.is_valid(raise_exception=True)
 
 
+@pytest.mark.parametrize(
+    ["base"],
+    [(pydantic.BaseModel,), (BaseModel,)],
+    ids=["pydantic_base", "drf_pydantic_base"],
+)
+def test_nested_model(
+    validate_pydantic: bool,
+    raise_pydantic_error: bool,
+    base: type[pydantic.BaseModel],
+):
+    class Job(base):  # type: ignore
+        title: str
+        salary: float
+
+        @pydantic.field_validator("salary")
+        @classmethod
+        def validate_salary(cls, v: typing.Any) -> float:
+            assert isinstance(v, float)
+            if v < 9000:
+                raise ValueError("Too low")
+            return v
+
+    class Person(BaseModel):
+        name: str
+        job: Job
+
+        drf_config = {
+            "validate_pydantic": validate_pydantic,
+            "validation_error": "pydantic" if raise_pydantic_error else "drf",
+        }
+
+    valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "job": {"title": "DM", "salary": 9000}},
+    )
+    assert valid_serializer.is_valid(raise_exception=True)
+
+    maybe_valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "job": {"title": "DM", "salary": 300}},
+    )
+    if validate_pydantic:
+        if raise_pydantic_error:
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid()
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+        else:
+            assert not maybe_valid_serializer.is_valid()
+            with pytest.raises(serializers.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+    else:
+        # Without pydantic DRF doesn't know about field_validator
+        assert maybe_valid_serializer.is_valid()
+        assert maybe_valid_serializer.is_valid(raise_exception=True)
+
+
+@pytest.mark.parametrize(
+    ["base"],
+    [(pydantic.BaseModel,), (BaseModel,)],
+    ids=["pydantic_base", "drf_pydantic_base"],
+)
+def test_list_of_nested_models(
+    validate_pydantic: bool,
+    raise_pydantic_error: bool,
+    base: type[pydantic.BaseModel],
+):
+    class Job(base):  # type: ignore
+        title: str
+        salary: float
+
+        @pydantic.field_validator("salary")
+        @classmethod
+        def validate_salary(cls, v: typing.Any) -> float:
+            assert isinstance(v, float)
+            if v < 9000:
+                raise ValueError("Too low")
+            return v
+
+    class Person(BaseModel):
+        name: str
+        jobs: list[Job]
+
+        drf_config = {
+            "validate_pydantic": validate_pydantic,
+            "validation_error": "pydantic" if raise_pydantic_error else "drf",
+        }
+
+    valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "jobs": [{"title": "DM", "salary": 9000}]},
+    )
+    assert valid_serializer.is_valid(raise_exception=True)
+
+    maybe_valid_serializer = Person.drf_serializer(
+        data={"name": "Van", "jobs": [{"title": "DM", "salary": 300}]},
+    )
+    if validate_pydantic:
+        if raise_pydantic_error:
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid()
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+        else:
+            assert not maybe_valid_serializer.is_valid()
+            with pytest.raises(serializers.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+    else:
+        # Without pydantic DRF doesn't know about field_validator
+        assert maybe_valid_serializer.is_valid()
+        assert maybe_valid_serializer.is_valid(raise_exception=True)
+
+
 def test_inheritance():
     class Grandparent(pydantic.BaseModel):
         name: str
@@ -126,6 +236,53 @@ def test_inheritance():
 
     grandchild_serializer = Grandchild.drf_serializer(data={**data})
     assert grandchild_serializer.is_valid(raise_exception=True)
+
+
+def test_manual_serializer(
+    validate_pydantic: bool,
+    raise_pydantic_error: bool,
+):
+    class MyCustomSerializer(DrfPydanticSerializer):
+        gender = serializers.ChoiceField(choices=["male", "female"])
+        name = serializers.CharField()
+        age = serializers.IntegerField()
+
+    class Person(BaseModel):
+        gender: str
+        name: str
+        age: int
+
+        @pydantic.field_validator("name")
+        @classmethod
+        def validate_name(cls, v: typing.Any) -> str:
+            assert isinstance(v, str)
+            if v != "Billy":
+                raise ValueError("Wrong door")
+            return v
+
+        drf_serializer = MyCustomSerializer
+        drf_config = {
+            "validate_pydantic": validate_pydantic,
+            "validation_error": "pydantic" if raise_pydantic_error else "drf",
+        }
+
+    maybe_valid_serializer = Person.drf_serializer(
+        data={"gender": "male", "name": "Van", "age": 69}
+    )
+    if validate_pydantic:
+        if raise_pydantic_error:
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid()
+            with pytest.raises(pydantic.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+        else:
+            assert not maybe_valid_serializer.is_valid()
+            with pytest.raises(serializers.ValidationError):
+                maybe_valid_serializer.is_valid(raise_exception=True)
+    else:
+        # Without pydantic DRF doesn't know about field_validator
+        assert maybe_valid_serializer.is_valid()
+        assert maybe_valid_serializer.is_valid(raise_exception=True)
 
 
 def test_validation_error_translation_field_errors():

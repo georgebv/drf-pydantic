@@ -17,7 +17,10 @@ from pydantic._internal._fields import PydanticMetadata
 from rest_framework import serializers  # type: ignore
 from typing_extensions import TypeAliasType
 
+import drf_pydantic
+
 from drf_pydantic.base_serializer import DrfPydanticSerializer
+from drf_pydantic.config import DrfConfigDict
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
 
@@ -58,6 +61,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 
 def create_serializer_from_model(
     pydantic_model: typing.Type[pydantic.BaseModel],
+    drf_config: typing.Optional[DrfConfigDict] = None,
 ) -> type[DrfPydanticSerializer]:
     """
     Create DRF Serializer from a pydantic model.
@@ -66,6 +70,9 @@ def create_serializer_from_model(
     ----------
     pydantic_model : type[pydantic.BaseModel]
         Pydantic model class.
+    drf_config : DrfConfigDict, optional
+        Config to set on the created serializer.
+        If None (default), assumed to be present on 'pydantic_model'.
 
     Returns
     -------
@@ -74,11 +81,14 @@ def create_serializer_from_model(
 
     """
     if pydantic_model not in SERIALIZER_REGISTRY:
+        drf_config = drf_config or getattr(pydantic_model, "drf_config")
+        assert drf_config is not None
+
         errors: dict[str, str] = {}
         fields: dict[str, serializers.Field] = {}
         for field_name, field in pydantic_model.model_fields.items():
             try:
-                fields[field_name] = _convert_field(field)
+                fields[field_name] = _convert_field(field, drf_config=drf_config)
             except FieldConversionError as error:
                 errors[field_name] = str(error)
         if len(errors) > 0:
@@ -102,12 +112,19 @@ def create_serializer_from_model(
         SERIALIZER_REGISTRY[pydantic_model] = type(
             f"{pydantic_model.__name__}Serializer",
             (DrfPydanticSerializer,),
-            {"_pydantic_model": pydantic_model, **fields},
+            {
+                "_pydantic_model": pydantic_model,
+                "_drf_config": drf_config,
+                **fields,
+            },
         )
     return SERIALIZER_REGISTRY[pydantic_model]
 
 
-def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
+def _convert_field(
+    field: pydantic.fields.FieldInfo,
+    drf_config: DrfConfigDict,
+) -> serializers.Field:
     """
     Convert pydantic field to DRF serializer Field.
 
@@ -115,6 +132,9 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
     ----------
     field : pydantic.fields.FieldInfo
         Field to convert.
+    drf_config : DrfConfigDict
+        Config to set on the created serializer or nested serializers,
+        if 'field' or its members/nested fields are pydantic models.
 
     Returns
     -------
@@ -247,11 +267,17 @@ def _convert_field(field: pydantic.fields.FieldInfo) -> serializers.Field:
             except (TypeError, decimal.InvalidOperation):
                 pass
 
-    return _convert_type(field.annotation, field, **drf_field_kwargs)
+    return _convert_type(
+        field.annotation,
+        drf_config=drf_config,
+        field=field,
+        **drf_field_kwargs,
+    )
 
 
 def _convert_type(  # noqa: PLR0911
     type_: typing.Union[typing.Type[typing.Any], TypeAliasType],
+    drf_config: DrfConfigDict,
     field: typing.Optional[pydantic.fields.FieldInfo] = None,
     **kwargs: typing.Any,
 ) -> serializers.Field:
@@ -262,6 +288,9 @@ def _convert_type(  # noqa: PLR0911
     ----------
     type_ : type | TypeAliasType
         Field class.
+    drf_config : DrfConfigDict, optional
+        Config to set on the created serializer or nested serializers,
+        if 'type_' or its members/nested fields are pydantic models.
     field : pydantic.fields.FieldInfo | None
         Pydantic field instance.
     kwargs : dict
@@ -306,11 +335,10 @@ def _convert_type(  # noqa: PLR0911
                 f"Only classes and TypeAliasType instances are supported."
             )
         # Nested model
+        if issubclass(type_, drf_pydantic.BaseModel):
+            return type_.drf_serializer(**kwargs)
         if issubclass(type_, pydantic.BaseModel):
-            try:
-                return getattr(type_, "drf_serializer")(**kwargs)
-            except AttributeError:
-                return create_serializer_from_model(type_)(**kwargs)
+            return create_serializer_from_model(type_, drf_config=drf_config)(**kwargs)
         # Decimal
         elif type_ is decimal.Decimal:
             _context = decimal.getcontext()
@@ -355,7 +383,7 @@ def _convert_type(  # noqa: PLR0911
         # Enforced by pydantic, check just in case
         assert len(type_.__args__) == 1
         return serializers.ListField(
-            child=_convert_type(type_.__args__[0]),
+            child=_convert_type(type_.__args__[0], drf_config=drf_config),
             allow_empty=True,
             **kwargs,
         )
@@ -365,7 +393,7 @@ def _convert_type(  # noqa: PLR0911
             and (is_scalar(type_.__args__[0]) and type_.__args__[1] is Ellipsis)
         ) or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1])):
             return serializers.ListField(
-                child=_convert_type(type_.__args__[0]),
+                child=_convert_type(type_.__args__[0], drf_config=drf_config),
                 allow_empty=True,
                 **kwargs,
             )
@@ -374,7 +402,7 @@ def _convert_type(  # noqa: PLR0911
             and len(set(type_.__args__)) == 1
         ):
             return serializers.ListField(
-                child=_convert_type(type_.__args__[0]),
+                child=_convert_type(type_.__args__[0], drf_config=drf_config),
                 allow_empty=True,
                 **kwargs,
             )
@@ -394,7 +422,7 @@ def _convert_type(  # noqa: PLR0911
                 f"Dict annotation must look like dict[str, <annotation>]."
             )
         return serializers.DictField(
-            child=_convert_type(type_.__args__[1]),
+            child=_convert_type(type_.__args__[1], drf_config=drf_config),
             allow_empty=True,
             **kwargs,
         )
