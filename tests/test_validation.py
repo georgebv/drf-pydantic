@@ -88,16 +88,16 @@ def test_pydantic_only_validation(
 
 
 @pytest.mark.parametrize(
-    ["job_base"],
+    ["base"],
     [(pydantic.BaseModel,), (BaseModel,)],
     ids=["pydantic_base", "drf_pydantic_base"],
 )
 def test_nested_model(
     validate_pydantic: bool,
     raise_pydantic_error: bool,
-    job_base: type[pydantic.BaseModel],
+    base: type[pydantic.BaseModel],
 ):
-    class Job(job_base):  # type: ignore
+    class Job(base):  # type: ignore
         title: str
         salary: float
 

@@ -11,7 +11,7 @@ from pydantic._internal._model_construction import (
 from pydantic._internal._model_construction import (
     PydanticGenericMetadata,  # type: ignore
 )
-from rest_framework import serializers
+from rest_framework import serializers  # type: ignore
 from typing_extensions import dataclass_transform
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
