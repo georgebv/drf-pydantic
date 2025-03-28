@@ -1,3 +1,4 @@
+import inspect
 import warnings
 
 from typing import Any, ClassVar, Optional
@@ -60,6 +61,10 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             cls, "drf_serializer"
         ):
             drf_serializer = getattr(cls, "drf_serializer")
+            if not inspect.isclass(drf_serializer):
+                raise TypeError(
+                    f"drf_serializer must be a class, check class {cls.__name__}"
+                )
             if not issubclass(drf_serializer, serializers.Serializer):
                 raise TypeError(
                     f"{drf_serializer.__name__} is not a valid type "
@@ -69,8 +74,9 @@ class ModelMetaclass(PydanticModelMetaclass, type):
                 warnings.warn(
                     (
                         f"custom drf_serializer on model {cls.__name__} "
-                        f"should be replace with an instace of "
-                        f"drf_pydantic.DrfPydanticSerializer"
+                        f"should be replaced with an instace of "
+                        f"drf_pydantic.DrfPydanticSerializer "
+                        f"(currently is {drf_serializer.__name__})"
                     ),
                     UserWarning,
                 )

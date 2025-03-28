@@ -96,4 +96,4 @@ def get_attr_owner(cls: Type[Any], attr: str) -> Type[Any]:
                 return base
 
     # We know cls has attr, so this line should never be reached; for type checker
-    raise RuntimeError
+    raise RuntimeError  # pragma: no cover

@@ -2,10 +2,11 @@ import datetime
 import typing
 
 import pydantic
+import pytest
 
 from rest_framework import serializers
 
-from drf_pydantic import BaseModel
+from drf_pydantic import BaseModel, DrfPydanticSerializer
 
 
 def test_model_with_multiple_fields():
@@ -170,7 +171,7 @@ def test_non_drf_nested_model():
 
 
 def test_manual_serializer():
-    class MyCustomSerializer(serializers.Serializer):
+    class MyCustomSerializer(DrfPydanticSerializer):
         gender = serializers.ChoiceField(choices=["male", "female"])
         title = serializers.CharField()
         peers = serializers.ListField(child=serializers.IntegerField())
@@ -189,10 +190,28 @@ def test_manual_serializer():
     assert isinstance(serializer.fields["peers"], serializers.ListField)
 
 
+def test_invalid_manual_serializer():
+    with pytest.raises(TypeError, match=r"must be a class"):
+
+        class Person1(BaseModel):
+            name: str
+            age: int
+
+            drf_serializer = object()
+
+    with pytest.raises(TypeError, match=r"is not a valid type"):
+
+        class Person2(BaseModel):
+            name: str
+            age: int
+
+            drf_serializer = object
+
+
 def test_manual_serializer_inheritance():
     """Ensure that manual serializer is not inherited from the parent class."""
 
-    class MyCustomSerializer(serializers.Serializer):
+    class MyCustomSerializer(DrfPydanticSerializer):
         gender = serializers.ChoiceField(choices=["male", "female"])
         title = serializers.CharField()
         peers = serializers.ListField(child=serializers.IntegerField())
@@ -224,7 +243,7 @@ def test_manual_serializer_inheritance():
 
 
 def test_nested_manual_serializer():
-    class MyCustomSerializer(serializers.Serializer):
+    class MyCustomSerializer(DrfPydanticSerializer):
         gender = serializers.ChoiceField(choices=["male", "female"])
         title = serializers.CharField()
         peers = serializers.ListField(child=serializers.IntegerField())
