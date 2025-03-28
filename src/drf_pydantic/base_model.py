@@ -1,3 +1,5 @@
+import warnings
+
 from typing import Any, ClassVar, Optional
 
 import pydantic
@@ -8,11 +10,13 @@ from pydantic._internal._model_construction import (
 from pydantic._internal._model_construction import (
     PydanticGenericMetadata,  # type: ignore
 )
+from rest_framework import serializers
 from typing_extensions import dataclass_transform
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
 from drf_pydantic.config import DrfConfigDict
 from drf_pydantic.parse import create_serializer_from_model
+from drf_pydantic.utils import get_attr_owner
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(pydantic.Field,))
@@ -51,11 +55,38 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             drf_config.update(getattr(base, "drf_config", DrfConfigDict()))
         setattr(cls, "drf_config", drf_config)
 
-        # Create serializer only if it's not already set by the user
-        # Serializer should never be inherited from the parent classes
-        if not hasattr(cls, "drf_serializer") or getattr(cls, "drf_serializer") in (
-            getattr(base, "drf_serializer", None) for base in cls.__mro__[1:]
+        # Serializer was set by the user (is already present and is not inherited)
+        if hasattr(cls, "drf_serializer") and cls is get_attr_owner(
+            cls, "drf_serializer"
         ):
+            drf_serializer = getattr(cls, "drf_serializer")
+            if not issubclass(drf_serializer, serializers.Serializer):
+                raise TypeError(
+                    f"{drf_serializer.__name__} is not a valid type "
+                    f"for drf_serializer. Check class {cls.__name__}"
+                )
+            if not issubclass(drf_serializer, DrfPydanticSerializer):
+                warnings.warn(
+                    (
+                        f"custom drf_serializer on model {cls.__name__} "
+                        f"should be replace with an instace of "
+                        f"drf_pydantic.DrfPydanticSerializer"
+                    ),
+                    UserWarning,
+                )
+            if getattr(drf_serializer, "_pydantic_model", cls) is not cls:
+                warnings.warn(
+                    (
+                        f"_pydantic_model on model {cls.__name__} doesn't match "
+                        f"expected class {cls.__name__}: "
+                        f"{getattr(drf_serializer, '_pydantic_model').__name__}"
+                    ),
+                    UserWarning,
+                )
+            setattr(drf_serializer, "_pydantic_model", cls)
+            if not hasattr(drf_serializer, "_drf_config"):
+                setattr(drf_serializer, "_drf_config", drf_config)
+        else:
             setattr(
                 cls,
                 "drf_serializer",

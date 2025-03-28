@@ -1,5 +1,7 @@
+import inspect
+
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union, cast
 
 if TYPE_CHECKING:
     from types import UnionType
@@ -59,3 +61,39 @@ def is_scalar(type_: Type[Any]) -> bool:
 
     """
     return not isinstance(type_, GenericAlias) and not isinstance(type_, _GenericAlias)
+
+
+def get_attr_owner(cls: Type[Any], attr: str) -> Type[Any]:
+    """
+    Return the class in the MRO that first declares a given attribute.
+
+    Parameters
+    ----------
+    cls : Type[Any]
+        Class whose MRO will be searched.
+    attr : str
+        Attribute name to locate within the MRO.
+
+    Returns
+    -------
+    Type[Any]
+        The class from the MRO that explicitly defines 'attr'.
+
+    """
+    if not hasattr(cls, attr):
+        raise AttributeError(f"Class {cls.__class__.__name__} doesn't have {attr}")
+
+    for base in inspect.getmro(cls):
+        if hasattr(base, "__dict__"):
+            if attr in base.__dict__:
+                return base
+        else:
+            slots = cast(Union[Tuple[str, ...], str], getattr(base, "__slots__"))
+            if isinstance(slots, str):
+                if slots == attr:
+                    return base
+            elif attr in slots:
+                return base
+
+    # We know cls has attr, so this line should never be reached; for type checker
+    raise RuntimeError
