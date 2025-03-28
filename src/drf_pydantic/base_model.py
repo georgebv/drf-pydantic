@@ -86,6 +86,7 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             setattr(drf_serializer, "_pydantic_model", cls)
             if not hasattr(drf_serializer, "_drf_config"):
                 setattr(drf_serializer, "_drf_config", drf_config)
+        # Serializer not declared on cls directly (missing or inherited)
         else:
             setattr(
                 cls,

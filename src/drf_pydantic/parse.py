@@ -71,8 +71,7 @@ def create_serializer_from_model(
     pydantic_model : type[pydantic.BaseModel]
         Pydantic model class.
     drf_config : DrfConfigDict, optional
-        Config to use if 'pydantic_model' is not inherited
-        from drf_pydantic's BaseModel.
+        Config to set on the created serializer.
         If None (default), assumed to be present on 'pydantic_model'.
 
     Returns
@@ -82,7 +81,7 @@ def create_serializer_from_model(
 
     """
     if pydantic_model not in SERIALIZER_REGISTRY:
-        drf_config = getattr(pydantic_model, "drf_config", drf_config)
+        drf_config = drf_config or getattr(pydantic_model, "drf_config")
         assert drf_config is not None
 
         errors: dict[str, str] = {}
@@ -124,7 +123,7 @@ def create_serializer_from_model(
 
 def _convert_field(
     field: pydantic.fields.FieldInfo,
-    drf_config: typing.Optional[DrfConfigDict] = None,
+    drf_config: DrfConfigDict,
 ) -> serializers.Field:
     """
     Convert pydantic field to DRF serializer Field.
@@ -133,9 +132,9 @@ def _convert_field(
     ----------
     field : pydantic.fields.FieldInfo
         Field to convert.
-    drf_config : DrfConfigDict, optional
-        Config to use if 'field' is a pydantic model.
-        If None (default) and 'field' is a pydantic model, assumed to be present on it.
+    drf_config : DrfConfigDict
+        Config to set on the created serializer or nested serializers,
+        if 'field' or its members/nested fields are pydantic models.
 
     Returns
     -------
@@ -270,16 +269,16 @@ def _convert_field(
 
     return _convert_type(
         field.annotation,
-        field=field,
         drf_config=drf_config,
+        field=field,
         **drf_field_kwargs,
     )
 
 
 def _convert_type(  # noqa: PLR0911
     type_: typing.Union[typing.Type[typing.Any], TypeAliasType],
+    drf_config: DrfConfigDict,
     field: typing.Optional[pydantic.fields.FieldInfo] = None,
-    drf_config: typing.Optional[DrfConfigDict] = None,
     **kwargs: typing.Any,
 ) -> serializers.Field:
     """
@@ -289,11 +288,11 @@ def _convert_type(  # noqa: PLR0911
     ----------
     type_ : type | TypeAliasType
         Field class.
+    drf_config : DrfConfigDict, optional
+        Config to set on the created serializer or nested serializers,
+        if 'type_' or its members/nested fields are pydantic models.
     field : pydantic.fields.FieldInfo | None
         Pydantic field instance.
-    drf_config : DrfConfigDict, optional
-        Config to use if 'type_' is a pydantic model.
-        If None (default) and 'type_' is a pydantic model, assumed to be present on it.
     kwargs : dict
         Additional keyword arguments used to instantiate the serializer Field class.
 
@@ -339,7 +338,6 @@ def _convert_type(  # noqa: PLR0911
         if issubclass(type_, drf_pydantic.BaseModel):
             return type_.drf_serializer(**kwargs)
         if issubclass(type_, pydantic.BaseModel):
-            assert drf_config is not None
             return create_serializer_from_model(type_, drf_config=drf_config)(**kwargs)
         # Decimal
         elif type_ is decimal.Decimal:
