@@ -1,21 +1,20 @@
 import json
 
-from typing import TYPE_CHECKING, Any, ClassVar, Type, TypeVar
+from typing import Any, ClassVar, Type, TypeVar
 
 import pydantic
 
 from rest_framework import serializers  # type: ignore
 from rest_framework.settings import api_settings  # type: ignore
 
-if TYPE_CHECKING:
-    from drf_pydantic.base_model import DrfConfigDict
+from drf_pydantic.config import DrfConfigDict
 
 T = TypeVar("T", bound=dict[str, Any])
 
 
 class DrfPydanticSerializer(serializers.Serializer):
     _pydantic_model: ClassVar[Type[pydantic.BaseModel]]
-    _drf_config: ClassVar["DrfConfigDict"]
+    _drf_config: ClassVar[DrfConfigDict]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)  # type: ignore

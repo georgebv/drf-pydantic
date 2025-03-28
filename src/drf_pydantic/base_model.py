@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal, Optional, TypedDict
+from typing import Any, ClassVar, Optional
 
 import pydantic
 
@@ -11,6 +11,7 @@ from pydantic._internal._model_construction import (
 from typing_extensions import dataclass_transform
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
+from drf_pydantic.config import DrfConfigDict
 from drf_pydantic.parse import create_serializer_from_model
 
 
@@ -62,38 +63,6 @@ class ModelMetaclass(PydanticModelMetaclass, type):
             )
 
         return cls
-
-
-class DrfConfigDict(TypedDict, total=False):
-    validate_pydantic: bool
-    """
-    Whether to validate parent pydantic model on drf_serializer validation.
-
-    By default is False.
-
-    """
-    validation_error: Literal["drf", "pydantic"]
-    """
-    What error to raise if pydantic model validation raises its ValidationError.
-
-    !!! CAUTION !!!
-    This will make the generated DRF serializer potentially
-    incompatible with DRF views which expect DRF's ValidationError.
-
-    By default 'drf'.
-    'validate_pydantic' must be True for this to have any effect.
-
-    """
-    backpopulate_after_validation: bool
-    """
-    Update values in the DRF serializer after pydantic model validation.
-
-    Useful if your pydantic validators modify model fields' values.
-
-    By default True.
-    'validate_pydantic' must be True for this to have any effect.
-
-    """
 
 
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):

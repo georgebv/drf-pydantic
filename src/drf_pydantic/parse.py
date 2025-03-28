@@ -20,11 +20,9 @@ from typing_extensions import TypeAliasType
 import drf_pydantic
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
+from drf_pydantic.config import DrfConfigDict
 from drf_pydantic.errors import FieldConversionError, ModelConversionError
 from drf_pydantic.utils import get_union_members, is_scalar
-
-if typing.TYPE_CHECKING:
-    from drf_pydantic.base_model import DrfConfigDict
 
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
@@ -63,7 +61,7 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 
 def create_serializer_from_model(
     pydantic_model: typing.Type[pydantic.BaseModel],
-    drf_config: typing.Optional["DrfConfigDict"] = None,
+    drf_config: typing.Optional[DrfConfigDict] = None,
 ) -> type[DrfPydanticSerializer]:
     """
     Create DRF Serializer from a pydantic model.
@@ -126,7 +124,7 @@ def create_serializer_from_model(
 
 def _convert_field(
     field: pydantic.fields.FieldInfo,
-    drf_config: typing.Optional["DrfConfigDict"] = None,
+    drf_config: typing.Optional[DrfConfigDict] = None,
 ) -> serializers.Field:
     """
     Convert pydantic field to DRF serializer Field.
@@ -281,7 +279,7 @@ def _convert_field(
 def _convert_type(  # noqa: PLR0911
     type_: typing.Union[typing.Type[typing.Any], TypeAliasType],
     field: typing.Optional[pydantic.fields.FieldInfo] = None,
-    drf_config: typing.Optional["DrfConfigDict"] = None,
+    drf_config: typing.Optional[DrfConfigDict] = None,
     **kwargs: typing.Any,
 ) -> serializers.Field:
     """
