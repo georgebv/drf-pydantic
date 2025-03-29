@@ -191,6 +191,7 @@ source = { editable = "." }
 dependencies = [
     { name = "djangorestframework" },
     { name = "pydantic", extra = ["email"] },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -210,6 +211,7 @@ test = [
 requires-dist = [
     { name = "djangorestframework", specifier = ">=3.13.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.0.0" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
 
 [package.metadata.requires-dev]

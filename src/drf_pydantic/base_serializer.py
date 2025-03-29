@@ -1,6 +1,6 @@
 import json
 
-from typing import Any, ClassVar, Type, TypeVar
+from typing import Any, ClassVar, Generic, Type, TypeVar
 
 import pydantic
 
@@ -10,14 +10,34 @@ from rest_framework.settings import api_settings  # type: ignore
 from drf_pydantic.config import DrfConfigDict
 
 T = TypeVar("T", bound=dict[str, Any])
+P = TypeVar("P", bound=pydantic.BaseModel)
 
 
-class DrfPydanticSerializer(serializers.Serializer):
-    _pydantic_model: ClassVar[Type[pydantic.BaseModel]]
+class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
+    _pydantic_model: ClassVar[Type[P]]  # type: ignore
     _drf_config: ClassVar[DrfConfigDict]
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)  # type: ignore
+    _pydantic_instance: P
+
+    @property
+    def pydantic_model(self) -> Type[P]:
+        try:
+            return self.__class__._pydantic_model
+        except AttributeError as exc:
+            raise RuntimeError(
+                f"Class {self.__class__.__name__} was improperly created "
+                f"without the _pydantic_model attribute"
+            ) from exc
+
+    @property
+    def pydantic_instance(self) -> P:
+        if not hasattr(self, "_pydantic_instance"):
+            setattr(
+                self,
+                "_pydantic_instance",
+                self._pydantic_model.model_validate(self.validated_data),  # type: ignore
+            )
+        return self._pydantic_instance
 
     def validate(self, attrs: T) -> T:
         return_value = super().validate(attrs)  # type: ignore
@@ -25,7 +45,7 @@ class DrfPydanticSerializer(serializers.Serializer):
             return return_value
 
         try:
-            validated_pydantic_model = self._pydantic_model(**attrs)
+            self._pydantic_instance = self.pydantic_model(**attrs)
         except pydantic.ValidationError as exc:
             if self._drf_config.get("validation_error") == "pydantic":
                 raise exc
@@ -67,7 +87,7 @@ class DrfPydanticSerializer(serializers.Serializer):
         if self._drf_config.get("backpopulate_after_validation"):
             for key in return_value:
                 try:
-                    return_value[key] = getattr(validated_pydantic_model, key)
+                    return_value[key] = getattr(self.pydantic_instance, key)
                 except AttributeError:  # pragma: no cover
                     continue
 

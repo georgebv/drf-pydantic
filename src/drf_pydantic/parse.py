@@ -7,6 +7,8 @@ import typing
 import uuid
 import warnings
 
+from typing import TypeVar, cast
+
 import annotated_types
 import pydantic
 import pydantic.fields
@@ -27,7 +29,10 @@ from drf_pydantic.utils import get_union_members, is_scalar
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
 # Example: reuse Serializer for nested models
-SERIALIZER_REGISTRY: dict[type, type[DrfPydanticSerializer]] = {}
+SERIALIZER_REGISTRY: dict[
+    type[pydantic.BaseModel],
+    type[DrfPydanticSerializer[pydantic.BaseModel]],
+] = {}
 
 # https://pydantic-docs.helpmanual.io/usage/types
 # https://www.django-rest-framework.org/api-guide/fields
@@ -59,10 +64,13 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
 }
 
 
+T = TypeVar("T", bound=pydantic.BaseModel)
+
+
 def create_serializer_from_model(
-    pydantic_model: typing.Type[pydantic.BaseModel],
+    pydantic_model: typing.Type[T],
     drf_config: typing.Optional[DrfConfigDict] = None,
-) -> type[DrfPydanticSerializer]:
+) -> type[DrfPydanticSerializer[T]]:
     """
     Create DRF Serializer from a pydantic model.
 
@@ -118,7 +126,7 @@ def create_serializer_from_model(
                 **fields,
             },
         )
-    return SERIALIZER_REGISTRY[pydantic_model]
+    return cast(type[DrfPydanticSerializer[T]], SERIALIZER_REGISTRY[pydantic_model])
 
 
 def _convert_field(

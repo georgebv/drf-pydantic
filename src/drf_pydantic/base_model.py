@@ -12,7 +12,7 @@ from pydantic._internal._model_construction import (
     PydanticGenericMetadata,  # type: ignore
 )
 from rest_framework import serializers  # type: ignore
-from typing_extensions import dataclass_transform
+from typing_extensions import Self, dataclass_transform
 
 from drf_pydantic.base_serializer import DrfPydanticSerializer
 from drf_pydantic.config import DrfConfigDict
@@ -105,5 +105,5 @@ class ModelMetaclass(PydanticModelMetaclass, type):
 
 class BaseModel(pydantic.BaseModel, metaclass=ModelMetaclass):
     # Populated by the metaclass or manually set by the user
-    drf_serializer: ClassVar[type[DrfPydanticSerializer]]
+    drf_serializer: ClassVar[type[DrfPydanticSerializer[Self]]]
     drf_config: ClassVar[DrfConfigDict]

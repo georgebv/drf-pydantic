@@ -27,7 +27,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 urls = { "homepage" = "https://github.com/georgebv/drf-pydantic", "github" = "https://github.com/georgebv/drf-pydantic" }
-dependencies = ["djangorestframework>=3.13.0", "pydantic[email]>=2.0.0"]
+dependencies = [
+    "djangorestframework>=3.13.0",
+    "pydantic[email]>=2.0.0",
+    "typing-extensions>=4.12.2",
+]
 
 [dependency-groups]
 dev = ["pre-commit>=4.2.0"]
