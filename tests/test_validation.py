@@ -376,8 +376,8 @@ def test_validation_backpopulation():
 
     serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
     assert serializer.is_valid(raise_exception=True)
-    assert serializer.data["name"] == "Jabroni"
-    assert serializer.data["age"] == 69
+    assert serializer.validated_data["name"] == "Jabroni"
+    assert serializer.validated_data["age"] == 69
 
 
 def test_validation_without_backpopulation():
@@ -402,5 +402,46 @@ def test_validation_without_backpopulation():
 
     serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
     assert serializer.is_valid(raise_exception=True)
-    assert serializer.data["name"] == "Van"
-    assert serializer.data["age"] == 68
+    assert serializer.validated_data["name"] == "Van"
+    assert serializer.validated_data["age"] == 68
+
+
+def test_nested_backpopulation():
+    class Salary(BaseModel):
+        value: int
+        currency: str
+
+    class Job(BaseModel):
+        title: str
+        salary: Salary
+
+        @pydantic.model_validator(mode="after")
+        def adjust_salary(self):
+            if self.title == "DM":
+                self.salary = Salary(value=300, currency="bucks")
+            return self
+
+    class Person(BaseModel):
+        name: str
+        job: Job
+
+        drf_config = {"validate_pydantic": True}
+
+    s = Person.drf_serializer(
+        data={
+            "name": "Van",
+            "job": {
+                "title": "DM",
+                "salary": {
+                    "value": 1000,
+                    "currency": "dollars",
+                },
+            },
+        }
+    )
+    assert s.is_valid(raise_exception=True)
+    assert isinstance(s.data["job"], dict)
+    assert s.validated_data["job"]["title"] == "DM"
+    assert isinstance(s.data["job"]["salary"], dict)
+    assert s.validated_data["job"]["salary"]["value"] == 300
+    assert s.validated_data["job"]["salary"]["currency"] == "bucks"
