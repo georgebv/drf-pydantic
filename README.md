@@ -54,7 +54,7 @@ zero runtime impact when using `drf_pydantic` in your application.
 
 > [!NOTE]
 > There will be a minor penalty if `validate_pydantic` is set to `True` due to pydantic
-> model validation. This is minimal compared to an-already present overhead of DRF
+> model validation. This is minimal compared to an already-present overhead of DRF
 > itself because pydantic runs its validation in rust while DRF is pure python.
 
 # Installation
