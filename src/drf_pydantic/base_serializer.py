@@ -67,7 +67,10 @@ class DrfPydanticSerializer(serializers.Serializer):
         if self._drf_config.get("backpopulate_after_validation"):
             for key in return_value:
                 try:
-                    return_value[key] = getattr(validated_pydantic_model, key)
+                    pydantic_value = getattr(validated_pydantic_model, key)
+                    if isinstance(pydantic_value, pydantic.BaseModel):
+                        pydantic_value = pydantic_value.model_dump()
+                    return_value[key] = pydantic_value
                 except AttributeError:  # pragma: no cover
                     continue
 

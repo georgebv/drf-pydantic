@@ -126,7 +126,7 @@ my_serializer.is_valid()  # this will also validate MyModel
 
 With this option enabled, every time you validate data using your DRF serializer,
 the parent pydantic model is also validated. If it fails, its
-`ValidationError` exception will be wrapped within DRF's ValidationError.
+`ValidationError` exception will be wrapped within DRF's `ValidationError`.
 Per-field and non-field (object-level) errors are wrapped
 similarly to how DRF handles them. This ensures your complex pydantic validation logic
 is properly evaluated wherever a DRF serializer is used.
@@ -158,7 +158,7 @@ class MyModel(BaseModel):
 
 my_serializer = MyModel.drf_serializer(data={"name": "van herrington", "addresses": []})
 my_serializer.is_valid()
-print(my_serializer.data)  # {"name": "Van Herrington", "addresses": []}
+print(my_serializer.validated_data)  # {"name": "Van Herrington", "addresses": []}
 ```
 
 This is handy when you dynamically modify field values within your
