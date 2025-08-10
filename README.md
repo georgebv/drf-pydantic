@@ -24,6 +24,7 @@
   - [Pydantic Validation](#pydantic-validation)
     - [Updating Field Values](#updating-field-values)
     - [Validation Errors](#validation-errors)
+    - [Accessing the Validated Pydantic Instance](#accessing-the-validated-pydantic-instance)
   - [Existing Models](#existing-models)
   - [Nested Models](#nested-models)
   - [Manual Serializer Configuration](#manual-serializer-configuration)
@@ -214,6 +215,26 @@ my_serializer.is_valid()  # this will raise pydantic.ValidationError
 > 1. It may break your views because they expect DRF's `ValidationError`.
 > 2. Calling `.is_valid()` will always raise `pydantic.ValidationError` if the data
 >    is invalid, even without setting `.is_valid(raise_exception=True)`.
+
+### Accessing the Validated Pydantic Instance
+
+When `validate_pydantic` is enabled and `.is_valid()` has been called successfully,
+the generated serializer exposes the fully validated Pydantic model instance via the
+`pydantic_instance` property:
+
+```python
+serializer = MyModel.drf_serializer(data={"name": "Van", "addresses": []})
+serializer.is_valid(raise_exception=True)
+print(serializer.pydantic_instance)  # MyModel(name='Van', addresses=[])
+```
+
+This lets you work directly with your original Pydantic model (including any
+mutations applied in validators) instead of DRF’s `validated_data` dictionary.
+
+> [!WARNING]
+>
+> - Accessing `pydantic_instance` before calling `.is_valid()` will raise an error.
+> - If `validate_pydantic` is disabled, accessing it will also raise an error.
 
 ## Existing Models
 

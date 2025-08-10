@@ -1,7 +1,7 @@
 import inspect
 
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Type
 
 if TYPE_CHECKING:
     from types import UnionType
@@ -18,7 +18,7 @@ else:
         UnionType = None
 
 
-def get_union_members(type_: Any) -> Optional[tuple[Type[Any], ...]]:
+def get_union_members(type_: Any) -> Optional[Tuple[Type[Any], ...]]:
     """
     Get union members from a union type.
 
