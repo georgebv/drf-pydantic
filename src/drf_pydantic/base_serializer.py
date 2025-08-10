@@ -1,6 +1,7 @@
 import json
+import warnings
 
-from typing import Any, ClassVar, Type, TypeVar
+from typing import Any, ClassVar, Dict, Generic, List, Optional, Type, TypeVar
 
 import pydantic
 
@@ -9,15 +10,25 @@ from rest_framework.settings import api_settings  # type: ignore
 
 from drf_pydantic.config import DrfConfigDict
 
-T = TypeVar("T", bound=dict[str, Any])
+T = TypeVar("T", bound=Dict[str, Any])
+P = TypeVar("P", bound=pydantic.BaseModel)
 
 
-class DrfPydanticSerializer(serializers.Serializer):
-    _pydantic_model: ClassVar[Type[pydantic.BaseModel]]
+class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
+    _pydantic_model: Type[P]
     _drf_config: ClassVar[DrfConfigDict]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)  # type: ignore
+        self.__pydantic_instance: Optional[P] = None
+
+    @property
+    def pydantic_instance(self) -> P:
+        if self.__pydantic_instance is None:
+            raise AssertionError(
+                "You must call `.is_valid()` before accessing `.pydantic_instance`."
+            )
+        return self.__pydantic_instance
 
     def validate(self, attrs: T) -> T:
         return_value = super().validate(attrs)  # type: ignore
@@ -31,8 +42,8 @@ class DrfPydanticSerializer(serializers.Serializer):
                 raise exc
             assert self._drf_config.get("validation_error") == "drf"
 
-            field_errors: dict[str, list[str]] = {}
-            non_field_errors: list[str] = []
+            field_errors: Dict[str, List[str]] = {}
+            non_field_errors: List[str] = []
             for error in exc.errors():
                 try:
                     message = json.dumps(
@@ -42,7 +53,7 @@ class DrfPydanticSerializer(serializers.Serializer):
                             "type": error["type"],
                         }
                     )
-                except:  # noqa pragma: no cover
+                except Exception:  # pragma: no cover
                     message = f"{error['msg']} (type={error['type']})"
                 if (
                     len(error["loc"]) == 0
@@ -72,6 +83,12 @@ class DrfPydanticSerializer(serializers.Serializer):
                         pydantic_value = pydantic_value.model_dump()
                     return_value[key] = pydantic_value
                 except AttributeError:  # pragma: no cover
+                    warnings.warn(
+                        f"Failed to set attribute `{key}` when validating instance "
+                        f"of type `{self._pydantic_model.__name__}`"
+                    )
                     continue
+
+        self.__pydantic_instanse = validated_pydantic_model
 
         return return_value

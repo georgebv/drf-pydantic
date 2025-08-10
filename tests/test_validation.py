@@ -4,7 +4,7 @@ import typing
 import pydantic
 import pytest
 
-from rest_framework import serializers
+from rest_framework import serializers  # type: ignore
 
 from drf_pydantic import BaseModel, DrfPydanticSerializer
 

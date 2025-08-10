@@ -3,9 +3,22 @@ import decimal
 import enum
 import inspect
 import re
-import typing
 import uuid
 import warnings
+
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import annotated_types
 import pydantic
@@ -27,12 +40,12 @@ from drf_pydantic.utils import get_union_members, is_scalar
 # Cache Serializer classes to ensure that there is a one-to-one relationship
 # between pydantic models and DRF Serializer classes
 # Example: reuse Serializer for nested models
-SERIALIZER_REGISTRY: dict[type, type[DrfPydanticSerializer]] = {}
+SERIALIZER_REGISTRY: Dict[type, Type[DrfPydanticSerializer[Any]]] = {}
 
 # https://pydantic-docs.helpmanual.io/usage/types
 # https://www.django-rest-framework.org/api-guide/fields
-# Maps python types supported by padantic to DRF serializer Fields
-FIELD_MAP: dict[type, type[serializers.Field]] = {
+# Maps python types supported by pydantic to DRF serializer Fields
+FIELD_MAP: Dict[type, Type[serializers.Field]] = {
     # Boolean fields
     bool: serializers.BooleanField,
     # String fields
@@ -58,11 +71,13 @@ FIELD_MAP: dict[type, type[serializers.Field]] = {
     dict: serializers.DictField,
 }
 
+P = TypeVar("P", bound=pydantic.BaseModel)
+
 
 def create_serializer_from_model(
-    pydantic_model: typing.Type[pydantic.BaseModel],
-    drf_config: typing.Optional[DrfConfigDict] = None,
-) -> type[DrfPydanticSerializer]:
+    pydantic_model: Type[P],
+    drf_config: Optional[DrfConfigDict] = None,
+) -> Type[DrfPydanticSerializer[P]]:
     """
     Create DRF Serializer from a pydantic model.
 
@@ -84,8 +99,8 @@ def create_serializer_from_model(
         drf_config = drf_config or getattr(pydantic_model, "drf_config")
         assert drf_config is not None
 
-        errors: dict[str, str] = {}
-        fields: dict[str, serializers.Field] = {}
+        errors: Dict[str, str] = {}
+        fields: Dict[str, serializers.Field] = {}
         for field_name, field in pydantic_model.model_fields.items():
             try:
                 fields[field_name] = _convert_field(field, drf_config=drf_config)
@@ -109,16 +124,19 @@ def create_serializer_from_model(
                 )
             )
         assert len(fields) == len(pydantic_model.model_fields)
-        SERIALIZER_REGISTRY[pydantic_model] = type(
-            f"{pydantic_model.__name__}Serializer",
-            (DrfPydanticSerializer,),
-            {
-                "_pydantic_model": pydantic_model,
-                "_drf_config": drf_config,
-                **fields,
-            },
+        SERIALIZER_REGISTRY[pydantic_model] = cast(
+            Type[DrfPydanticSerializer[P]],
+            type(
+                f"{pydantic_model.__name__}Serializer",
+                (DrfPydanticSerializer,),
+                {
+                    "_pydantic_model": pydantic_model,
+                    "_drf_config": drf_config,
+                    **fields,
+                },
+            ),
         )
-    return SERIALIZER_REGISTRY[pydantic_model]
+    return cast(Type[DrfPydanticSerializer[P]], SERIALIZER_REGISTRY[pydantic_model])
 
 
 def _convert_field(
@@ -143,7 +161,7 @@ def _convert_field(
 
     """
     # Check if DRF field was explicitly set
-    manual_drf_fields: list[serializers.Field] = []
+    manual_drf_fields: List[serializers.Field] = []
     for item in field.metadata:
         if isinstance(item, serializers.Field):
             manual_drf_fields.append(item)
@@ -156,7 +174,7 @@ def _convert_field(
         )
 
     assert field.annotation is not None
-    drf_field_kwargs: dict[str, typing.Any] = {
+    drf_field_kwargs: Dict[str, Any] = {
         "required": field.is_required(),
     }
     _default_value = field.get_default(call_default_factory=True)
@@ -276,10 +294,10 @@ def _convert_field(
 
 
 def _convert_type(  # noqa: PLR0911
-    type_: typing.Union[typing.Type[typing.Any], TypeAliasType],
+    type_: Union[Type[Any], TypeAliasType],
     drf_config: DrfConfigDict,
-    field: typing.Optional[pydantic.fields.FieldInfo] = None,
-    **kwargs: typing.Any,
+    field: Optional[pydantic.fields.FieldInfo] = None,
+    **kwargs: Any,
 ) -> serializers.Field:
     """
     Convert type or type alias to DRF serializer Field.
@@ -352,7 +370,7 @@ def _convert_type(  # noqa: PLR0911
             isinstance(item, pydantic.StringConstraints) and item.pattern is not None
             for item in field.metadata
         ):
-            regex_patterns: list[typing.Union[str, re.Pattern[str]]] = []
+            regex_patterns: List[Union[str, re.Pattern[str]]] = []
             for item in field.metadata:
                 if (
                     isinstance(item, pydantic.StringConstraints)
@@ -368,7 +386,7 @@ def _convert_type(  # noqa: PLR0911
         # Enum
         elif issubclass(type_, enum.Enum):
             return serializers.ChoiceField(
-                choices=[item.value for item in type_], **kwargs
+                choices=[(item.value, item.value) for item in type_], **kwargs
             )
         # Known mapped scalar field
         for key in getattr(type_, "__mro__", []):
@@ -379,30 +397,29 @@ def _convert_type(  # noqa: PLR0911
         raise FieldConversionError(f"{type_.__name__} is not a supported scalar type.")
 
     # Composite field
-    if type_.__origin__ is list:
+    type_origin = get_origin(type_) or type_
+    type_args = get_args(type_)
+    if type_origin is list:
         # Enforced by pydantic, check just in case
-        assert len(type_.__args__) == 1
+        assert len(type_args) == 1
         return serializers.ListField(
-            child=_convert_type(type_.__args__[0], drf_config=drf_config),
+            child=_convert_type(type_args[0], drf_config=drf_config),
             allow_empty=True,
             **kwargs,
         )
-    elif type_.__origin__ is tuple:
+    elif type_origin is tuple:
         if (
-            len(type_.__args__) == 2
-            and (is_scalar(type_.__args__[0]) and type_.__args__[1] is Ellipsis)
-        ) or (type_.__args__[0] is Ellipsis and is_scalar(type_.__args__[1])):
+            len(type_args) == 2
+            and (is_scalar(type_args[0]) and type_args[1] is Ellipsis)
+        ) or (type_args[0] is Ellipsis and is_scalar(type_args[1])):
             return serializers.ListField(
-                child=_convert_type(type_.__args__[0], drf_config=drf_config),
+                child=_convert_type(type_args[0], drf_config=drf_config),
                 allow_empty=True,
                 **kwargs,
             )
-        elif (
-            all(is_scalar(arg) for arg in type_.__args__)
-            and len(set(type_.__args__)) == 1
-        ):
+        elif all(is_scalar(arg) for arg in type_args) and len(set(type_args)) == 1:
             return serializers.ListField(
-                child=_convert_type(type_.__args__[0], drf_config=drf_config),
+                child=_convert_type(type_args[0], drf_config=drf_config),
                 allow_empty=True,
                 **kwargs,
             )
@@ -413,21 +430,21 @@ def _convert_type(  # noqa: PLR0911
                 f"(a) single scalar and single Ellipsis (e.g., tuple[int, ...]) or "
                 "(b) multiple scalars of the same type (e.g., tuple[int, int])."
             )
-    elif type_.__origin__ is dict:
+    elif type_origin is dict:
         # Enforced by pydantic, check just in case
-        assert len(type_.__args__) == 2
-        if type_.__args__[0] is not str:
+        assert len(type_args) == 2
+        if type_args[0] is not str:
             raise FieldConversionError(
                 f"{type_} is not a supported dict type. "
                 f"Dict annotation must look like dict[str, <annotation>]."
             )
         return serializers.DictField(
-            child=_convert_type(type_.__args__[1], drf_config=drf_config),
+            child=_convert_type(type_args[1], drf_config=drf_config),
             allow_empty=True,
             **kwargs,
         )
-    elif type_.__origin__ is typing.Literal:
-        return serializers.ChoiceField(choices=type_.__args__, **kwargs)
+    elif type_origin is Literal:
+        return serializers.ChoiceField(choices=type_args, **kwargs)
     raise FieldConversionError(
-        f"{type_.__origin__.__name__} is not a supported composite type."
+        f"{type_origin.__name__} is not a supported composite type."
     )
