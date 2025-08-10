@@ -43,6 +43,16 @@ def test_simple_model(
     valid_serializer = Person.drf_serializer(data={"name": "Van", "age": 69})
     assert valid_serializer.is_valid(raise_exception=True)
 
+    assert valid_serializer._pydantic_model is Person
+    if validate_pydantic:
+        assert isinstance(valid_serializer.pydantic_instance, Person)
+    else:
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            valid_serializer.pydantic_instance
+
     invalid_serializer = Person.drf_serializer(data={"name": 69, "age": "Van"})
     assert not invalid_serializer.is_valid()
     with pytest.raises(serializers.ValidationError):
@@ -71,6 +81,7 @@ def test_pydantic_only_validation(
         }
 
     maybe_valid_serializer = Person.drf_serializer(data={"name": "Van", "age": 69})
+    assert maybe_valid_serializer._pydantic_model is Person
     if validate_pydantic:
         if raise_pydantic_error:
             with pytest.raises(pydantic.ValidationError):
@@ -81,10 +92,20 @@ def test_pydantic_only_validation(
             assert not maybe_valid_serializer.is_valid()
             with pytest.raises(serializers.ValidationError):
                 maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must call `.is_valid\(\)` before",
+        ):
+            maybe_valid_serializer.pydantic_instance
     else:
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            maybe_valid_serializer.pydantic_instance
 
 
 @pytest.mark.parametrize(
@@ -122,6 +143,14 @@ def test_nested_model(
         data={"name": "Van", "job": {"title": "DM", "salary": 9000}},
     )
     assert valid_serializer.is_valid(raise_exception=True)
+    if validate_pydantic:
+        assert isinstance(valid_serializer.pydantic_instance, Person)
+    else:
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            valid_serializer.pydantic_instance
 
     maybe_valid_serializer = Person.drf_serializer(
         data={"name": "Van", "job": {"title": "DM", "salary": 300}},
@@ -136,10 +165,20 @@ def test_nested_model(
             assert not maybe_valid_serializer.is_valid()
             with pytest.raises(serializers.ValidationError):
                 maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must call `.is_valid\(\)` before",
+        ):
+            maybe_valid_serializer.pydantic_instance
     else:
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            maybe_valid_serializer.pydantic_instance
 
 
 @pytest.mark.parametrize(
@@ -177,6 +216,14 @@ def test_list_of_nested_models(
         data={"name": "Van", "jobs": [{"title": "DM", "salary": 9000}]},
     )
     assert valid_serializer.is_valid(raise_exception=True)
+    if validate_pydantic:
+        assert isinstance(valid_serializer.pydantic_instance, Person)
+    else:
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            valid_serializer.pydantic_instance
 
     maybe_valid_serializer = Person.drf_serializer(
         data={"name": "Van", "jobs": [{"title": "DM", "salary": 300}]},
@@ -191,10 +238,19 @@ def test_list_of_nested_models(
             assert not maybe_valid_serializer.is_valid()
             with pytest.raises(serializers.ValidationError):
                 maybe_valid_serializer.is_valid(raise_exception=True)
+        # not available when invalid or when is_valid raised
+        with pytest.raises(
+            AssertionError, match=r"You must call `.is_valid\(\)` before"
+        ):
+            maybe_valid_serializer.pydantic_instance
     else:
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError, match=r"You must enable pydantic validation"
+        ):
+            maybe_valid_serializer.pydantic_instance
 
 
 def test_inheritance():
@@ -227,15 +283,20 @@ def test_inheritance():
     assert not parent_serializer.is_valid()
     with pytest.raises(serializers.ValidationError):
         parent_serializer.is_valid(raise_exception=True)
-
+    with pytest.raises(AssertionError, match=r"You must call `.is_valid\(\)` before"):
+        parent_serializer.pydantic_instance
     child_serializer = Child.drf_serializer(data={**data})
     with pytest.raises(pydantic.ValidationError):
         child_serializer.is_valid()
     with pytest.raises(pydantic.ValidationError):
         child_serializer.is_valid(raise_exception=True)
+    with pytest.raises(AssertionError, match=r"You must call `.is_valid\(\)` before"):
+        child_serializer.pydantic_instance
 
     grandchild_serializer = Grandchild.drf_serializer(data={**data})
     assert grandchild_serializer.is_valid(raise_exception=True)
+    with pytest.raises(AssertionError, match=r"You must enable pydantic validation"):
+        grandchild_serializer.pydantic_instance
 
 
 def test_manual_serializer(
@@ -279,10 +340,20 @@ def test_manual_serializer(
             assert not maybe_valid_serializer.is_valid()
             with pytest.raises(serializers.ValidationError):
                 maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must call `.is_valid\(\)` before",
+        ):
+            maybe_valid_serializer.pydantic_instance
     else:
         # Without pydantic DRF doesn't know about field_validator
         assert maybe_valid_serializer.is_valid()
         assert maybe_valid_serializer.is_valid(raise_exception=True)
+        with pytest.raises(
+            AssertionError,
+            match=r"You must enable pydantic validation",
+        ):
+            maybe_valid_serializer.pydantic_instance
 
 
 def test_validation_error_translation_field_errors():
@@ -377,6 +448,7 @@ def test_validation_backpopulation():
     serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
     assert serializer.is_valid(raise_exception=True)
     assert serializer.validated_data["name"] == "Jabroni"
+    assert serializer.pydantic_instance.age == 69
     assert serializer.validated_data["age"] == 69
 
 
@@ -403,6 +475,7 @@ def test_validation_without_backpopulation():
     serializer = Person.drf_serializer(data={"name": "Van", "age": 68})
     assert serializer.is_valid(raise_exception=True)
     assert serializer.validated_data["name"] == "Van"
+    assert serializer.pydantic_instance.age == 69
     assert serializer.validated_data["age"] == 68
 
 
@@ -441,7 +514,10 @@ def test_nested_backpopulation():
     )
     assert s.is_valid(raise_exception=True)
     assert isinstance(s.data["job"], dict)
+    assert s.pydantic_instance.job.title == "DM"
     assert s.validated_data["job"]["title"] == "DM"
     assert isinstance(s.data["job"]["salary"], dict)
+    assert s.pydantic_instance.job.salary.value == 300
     assert s.validated_data["job"]["salary"]["value"] == 300
+    assert s.pydantic_instance.job.salary.currency == "bucks"
     assert s.validated_data["job"]["salary"]["currency"] == "bucks"

@@ -24,6 +24,11 @@ class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
 
     @property
     def pydantic_instance(self) -> P:
+        if not self._drf_config.get("validate_pydantic"):
+            raise AssertionError(
+                "You must enable pydantic validation with `validate_pydantic` "
+                "before accessing `.pydantic_instance`."
+            )
         if self.__pydantic_instance is None:
             raise AssertionError(
                 "You must call `.is_valid()` before accessing `.pydantic_instance`."
@@ -89,6 +94,6 @@ class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
                     )
                     continue
 
-        self.__pydantic_instanse = validated_pydantic_model
+        self.__pydantic_instance = validated_pydantic_model
 
         return return_value
