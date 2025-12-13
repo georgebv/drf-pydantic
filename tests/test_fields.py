@@ -105,6 +105,41 @@ class TestScalar:
         )
         assert serializer.fields["phone_number"].allow_null is False
 
+    def test_regex_from_field(self):
+        pattern = r"^\+?[0-9]+$"
+
+        class Person(BaseModel):
+            phone_number: typing.Annotated[
+                str,
+                pydantic.Field(pattern=pattern),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["phone_number"], serializers.RegexField)
+        assert serializer.fields["phone_number"].validators[-1].regex == re.compile(
+            pattern
+        )
+        assert serializer.fields["phone_number"].allow_null is False
+
+    def test_compiled_regex(self):
+        pattern = r"^\+?[0-9]+$"
+        compiled_pattern = re.compile(pattern)
+
+        class Person(BaseModel):
+            phone_number: typing.Annotated[
+                str,
+                pydantic.StringConstraints(pattern=compiled_pattern),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["phone_number"], serializers.RegexField)
+        assert serializer.fields["phone_number"].validators[-1].regex == re.compile(
+            pattern
+        )
+        assert serializer.fields["phone_number"].allow_null is False
+
     def test_optional_regex(self):
         pattern = r"^\+?[0-9]+$"
 
@@ -130,6 +165,21 @@ class TestScalar:
                     str,
                     pydantic.StringConstraints(pattern=r"123"),
                     pydantic.StringConstraints(pattern=r"456"),
+                ]
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "Field has multiple regex patterns" in str(exc_info.value)
+
+    def test_multiple_regex_with_field_error(self):
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                phone_number: typing.Annotated[
+                    str,
+                    pydantic.StringConstraints(pattern=r"123"),
+                    pydantic.Field(pattern=r"456"),
                 ]
 
             Person.drf_serializer()
