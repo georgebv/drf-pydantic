@@ -82,11 +82,11 @@ class MyModel(BaseModel):
 
 ```python
 class MyModelSerializer:
-    name = CharField(allow_null=False, required=True)
+    name = CharField(allow_null=False, required=True, allow_blank=True)
     addresses = ListField(
         allow_empty=True,
         allow_null=False,
-        child=CharField(allow_null=False),
+        child=CharField(allow_null=False, allow_blank=True),
         required=True,
     )
 ```
@@ -370,7 +370,7 @@ Additional field properties are mapped as follows (`pydantic` -> `DRF`):
 
 - `description` -> `help_text`
 - `title` -> `label`
-- `StringConstraints` -> `min_length` and `max_length`
+- `StringConstraints` -> `min_length` and `max_length` and `allow_blank`
 - `pattern` -> Uses the specialized `RegexField` serializer field
 - `max_digits` and `decimal_places` are carried over
   (used for `Decimal` types, with the current decimal context precision)
