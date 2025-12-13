@@ -32,6 +32,7 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["name"], serializers.CharField)
+        assert serializer.fields["name"].allow_blank is True
 
     def test_constrained_string(self):
         class Person(BaseModel):
@@ -45,6 +46,7 @@ class TestScalar:
         assert isinstance(serializer.fields["name"], serializers.CharField)
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
+        assert serializer.fields["name"].allow_blank is False
 
     def test_constrained_string_defined_from_field(self):
         class Person(BaseModel):
@@ -55,6 +57,7 @@ class TestScalar:
         assert isinstance(serializer.fields["name"], serializers.CharField)
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
+        assert serializer.fields["name"].allow_blank is False
 
     def test_constrained_string_min_max_values(self):
         """Must be ignored in non-numeric fields"""
@@ -87,6 +90,7 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["email"], serializers.EmailField)
+        assert serializer.fields["email"].allow_blank is False
 
     def test_regex(self):
         pattern = r"^\+?[0-9]+$"
@@ -156,6 +160,7 @@ class TestScalar:
             pattern
         )
         assert serializer.fields["phone_number"].allow_null is True
+        assert serializer.fields["phone_number"].allow_blank is False
 
     def test_multiple_regex_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -194,6 +199,7 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["website"], serializers.URLField)
+        assert serializer.fields["website"].allow_blank is False
 
     def test_uuid(self):
         class Person(BaseModel):
@@ -621,6 +627,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     def test_optional_type_with_union(self):
         class Person(BaseModel):
@@ -631,6 +638,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
     def test_optional_type_with_pipe(self):
@@ -642,6 +650,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     def test_optional_type_with_annotation(self):
         class Person(BaseModel):
@@ -655,6 +664,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is False
 
     def test_union_field_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -723,6 +733,64 @@ def test_drf_field_kwargs():
     # This is custom defined label
     assert serializer.fields["field_10"].label == "10th field"
     assert serializer.fields["field_11"].label == "11th field"
+
+
+def test_allow_blank():
+    pattern = r"^\+?[0-9]+$"
+    empty_pattern = r"^$"
+    compiled_pattern = re.compile(pattern)
+    compiled_empty_pattern = re.compile(empty_pattern)
+
+    class Person(BaseModel):
+        field_1: str
+        field_2: typing.Optional[str]
+        field_3: str = pydantic.Field(min_length=1)
+        field_4: str = pydantic.Field(min_length=0)
+        field_5: typing.Annotated[str, pydantic.Field(min_length=1)]
+        field_6: typing.Annotated[str, pydantic.Field(min_length=0)]
+        field_7: typing.Optional[str] = pydantic.Field(min_length=1)
+        field_8: typing.Optional[str] = pydantic.Field(min_length=0)
+        field_9: typing.Annotated[typing.Optional[str], pydantic.Field(min_length=1)]
+        field_10: typing.Annotated[typing.Optional[str], pydantic.Field(min_length=0)]
+        field_11: typing.Annotated[str, pydantic.StringConstraints(min_length=1)]
+        field_12: typing.Annotated[str, pydantic.StringConstraints(min_length=0)]
+        field_13: typing.Annotated[str, pydantic.Field(pattern=pattern)]
+        field_14: typing.Annotated[str, pydantic.Field(pattern=empty_pattern)]
+        field_15: typing.Annotated[str, pydantic.Field(pattern=compiled_pattern)]
+        field_16: typing.Annotated[str, pydantic.Field(pattern=compiled_empty_pattern)]
+        field_17: typing.Annotated[str, pydantic.StringConstraints(pattern=pattern)]
+        field_18: typing.Annotated[
+            str, pydantic.StringConstraints(pattern=empty_pattern)
+        ]
+        field_19: typing.Annotated[
+            str, pydantic.StringConstraints(pattern=compiled_pattern)
+        ]
+        field_20: typing.Annotated[
+            str, pydantic.StringConstraints(pattern=compiled_empty_pattern)
+        ]
+
+    serializer = Person.drf_serializer()
+
+    assert serializer.fields["field_1"].allow_blank is True
+    assert serializer.fields["field_2"].allow_blank is True
+    assert serializer.fields["field_3"].allow_blank is False
+    assert serializer.fields["field_4"].allow_blank is True
+    assert serializer.fields["field_5"].allow_blank is False
+    assert serializer.fields["field_6"].allow_blank is True
+    assert serializer.fields["field_7"].allow_blank is False
+    assert serializer.fields["field_8"].allow_blank is True
+    assert serializer.fields["field_9"].allow_blank is False
+    assert serializer.fields["field_10"].allow_blank is True
+    assert serializer.fields["field_11"].allow_blank is False
+    assert serializer.fields["field_12"].allow_blank is True
+    assert serializer.fields["field_13"].allow_blank is False
+    assert serializer.fields["field_14"].allow_blank is True
+    assert serializer.fields["field_15"].allow_blank is False
+    assert serializer.fields["field_16"].allow_blank is True
+    assert serializer.fields["field_17"].allow_blank is False
+    assert serializer.fields["field_18"].allow_blank is True
+    assert serializer.fields["field_19"].allow_blank is False
+    assert serializer.fields["field_20"].allow_blank is True
 
 
 class TestManualFields:
