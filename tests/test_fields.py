@@ -32,6 +32,7 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["name"], serializers.CharField)
+        assert serializer.fields["name"].allow_blank is True
 
     def test_constrained_string(self):
         class Person(BaseModel):
@@ -45,6 +46,7 @@ class TestScalar:
         assert isinstance(serializer.fields["name"], serializers.CharField)
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
+        assert serializer.fields["name"].allow_blank is False
 
     def test_constrained_string_defined_from_field(self):
         class Person(BaseModel):
@@ -55,6 +57,7 @@ class TestScalar:
         assert isinstance(serializer.fields["name"], serializers.CharField)
         assert serializer.fields["name"].min_length == 3
         assert serializer.fields["name"].max_length == 10
+        assert serializer.fields["name"].allow_blank is False
 
     def test_constrained_string_min_max_values(self):
         """Must be ignored in non-numeric fields"""
@@ -87,14 +90,23 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["email"], serializers.EmailField)
+        assert serializer.fields["email"].allow_blank is False
 
-    def test_regex(self):
+    @pytest.mark.parametrize(
+        "compiled",
+        [False, True],
+        ids=["raw_str", "compiled"],
+    )
+    @pytest.mark.parametrize(
+        "constraint_class", [pydantic.Field, pydantic.StringConstraints]
+    )
+    def test_regex(self, constraint_class, compiled):
         pattern = r"^\+?[0-9]+$"
 
         class Person(BaseModel):
             phone_number: typing.Annotated[
                 str,
-                pydantic.StringConstraints(pattern=pattern),
+                constraint_class(pattern=re.compile(pattern) if compiled else pattern),
             ]
 
         serializer = Person.drf_serializer()
@@ -121,6 +133,7 @@ class TestScalar:
             pattern
         )
         assert serializer.fields["phone_number"].allow_null is True
+        assert serializer.fields["phone_number"].allow_blank is False
 
     def test_multiple_regex_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -137,6 +150,21 @@ class TestScalar:
         assert "Error when converting model: Person" in str(exc_info.value)
         assert "Field has multiple regex patterns" in str(exc_info.value)
 
+    def test_multiple_regex_with_field_error(self):
+        with pytest.raises(ModelConversionError) as exc_info:
+
+            class Person(BaseModel):
+                phone_number: typing.Annotated[
+                    str,
+                    pydantic.StringConstraints(pattern=r"123"),
+                    pydantic.Field(pattern=r"456"),
+                ]
+
+            Person.drf_serializer()
+
+        assert "Error when converting model: Person" in str(exc_info.value)
+        assert "Field has multiple regex patterns" in str(exc_info.value)
+
     def test_url(self):
         class Person(BaseModel):
             website: pydantic.HttpUrl
@@ -144,6 +172,7 @@ class TestScalar:
         serializer = Person.drf_serializer()
 
         assert isinstance(serializer.fields["website"], serializers.URLField)
+        assert serializer.fields["website"].allow_blank is False
 
     def test_uuid(self):
         class Person(BaseModel):
@@ -571,6 +600,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     def test_optional_type_with_union(self):
         class Person(BaseModel):
@@ -581,6 +611,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
     def test_optional_type_with_pipe(self):
@@ -592,6 +623,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is True
 
     def test_optional_type_with_annotation(self):
         class Person(BaseModel):
@@ -605,6 +637,7 @@ class TestUnion:
         field: serializers.Field = serializer.fields["name"]
         assert isinstance(field, serializers.CharField)
         assert field.allow_null is True
+        assert field.allow_blank is False
 
     def test_union_field_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -673,6 +706,38 @@ def test_drf_field_kwargs():
     # This is custom defined label
     assert serializer.fields["field_10"].label == "10th field"
     assert serializer.fields["field_11"].label == "11th field"
+
+
+@pytest.mark.parametrize(
+    ["kwargs", "allow_blank"],
+    [
+        ({"min_length": 1}, False),
+        ({"min_length": 0}, True),
+        ({"pattern": r"^\+?[0-9]+$"}, False),
+        ({"pattern": r"^$"}, True),
+        ({"pattern": re.compile(r"^\+?[0-9]+$")}, False),
+        ({"pattern": re.compile(r"^$")}, True),
+    ],
+    ids=[
+        "min_length=1",
+        "min_length=0",
+        "pattern=raw_str",
+        "pattern=raw_str_empty",
+        "pattern=compiled",
+        "pattern=compiled_empty",
+    ],
+)
+@pytest.mark.parametrize(
+    "constraint_class", [pydantic.Field, pydantic.StringConstraints]
+)
+@pytest.mark.parametrize("_type", [str, typing.Optional[str]])
+def test_allow_blank(_type, constraint_class, kwargs, allow_blank):
+    class Person(BaseModel):
+        field: typing.Annotated[_type, constraint_class(**kwargs)]  # type: ignore
+
+    serializer = Person.drf_serializer()
+
+    assert serializer.fields["field"].allow_blank is allow_blank
 
 
 class TestManualFields:

@@ -358,7 +358,7 @@ def _convert_type(  # noqa: PLR0911
         if issubclass(type_, pydantic.BaseModel):
             return create_serializer_from_model(type_, drf_config=drf_config)(**kwargs)
         # Decimal
-        elif type_ is decimal.Decimal:
+        if type_ is decimal.Decimal:
             _context = decimal.getcontext()
             kwargs["max_digits"] = kwargs.get("max_digits", None) or _context.prec
             kwargs["decimal_places"] = (
@@ -367,7 +367,11 @@ def _convert_type(  # noqa: PLR0911
             return serializers.DecimalField(**kwargs)
         # Regex
         elif field is not None and any(
-            isinstance(item, pydantic.StringConstraints) and item.pattern is not None
+            (isinstance(item, pydantic.StringConstraints) and item.pattern is not None)
+            or (
+                isinstance(item, PydanticMetadata)
+                and getattr(item, "pattern", None) is not None
+            )
             for item in field.metadata
         ):
             regex_patterns: List[Union[str, re.Pattern[str]]] = []
@@ -377,17 +381,32 @@ def _convert_type(  # noqa: PLR0911
                     and item.pattern is not None
                 ):
                     regex_patterns.append(item.pattern)
+                elif (
+                    isinstance(item, PydanticMetadata)
+                    and getattr(item, "pattern", None) is not None
+                ):
+                    regex_patterns.append(getattr(item, "pattern"))
             if len(regex_patterns) > 1:
                 raise FieldConversionError(
                     f"Field has multiple regex patterns: {regex_patterns}"
                 )
             elif len(regex_patterns) == 1:
-                return serializers.RegexField(regex=regex_patterns[0], **kwargs)
+                pattern = regex_patterns[0]
+                if isinstance(pattern, re.Pattern):
+                    kwargs["allow_blank"] = pattern.search("") is not None
+                elif isinstance(pattern, str):
+                    kwargs["allow_blank"] = re.search(pattern, "") is not None
+                return serializers.RegexField(regex=pattern, **kwargs)
         # Enum
         elif issubclass(type_, enum.Enum):
             return serializers.ChoiceField(
                 choices=[(item.value, item.value) for item in type_], **kwargs
             )
+        # String allow_blank handling
+        if issubclass(type_, (pydantic.EmailStr, pydantic_core.Url, pydantic.HttpUrl)):
+            kwargs["allow_blank"] = False
+        elif issubclass(type_, str):
+            kwargs["allow_blank"] = kwargs.get("min_length", 0) == 0
         # Known mapped scalar field
         for key in getattr(type_, "__mro__", []):
             try:
