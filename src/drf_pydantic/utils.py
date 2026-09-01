@@ -1,17 +1,16 @@
 import inspect
 
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union, get_origin
 
 if TYPE_CHECKING:
     from types import UnionType
 
-    _UnionGenericAlias = UnionType
     _GenericAlias = GenericAlias
 else:
-    # Union syntax using pipe (e.g., int | str) is only available in Python 3.10+
-    from typing import _GenericAlias, _UnionGenericAlias
+    from typing import _GenericAlias
 
+    # Union syntax using pipe (e.g., int | str) is only available in Python 3.10+
     try:
         from types import UnionType
     except ImportError:  # pragma: no cover
@@ -34,7 +33,7 @@ def get_union_members(type_: Any) -> Optional[Tuple[Type[Any], ...]]:
         None if type_ is not a union type.
 
     """
-    if isinstance(type_, _UnionGenericAlias) or (  # type: ignore
+    if get_origin(type_) is Union or (
         UnionType is not None and isinstance(type_, UnionType)  # type: ignore
     ):
         return type_.__args__
