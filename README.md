@@ -73,6 +73,7 @@ Use `drf_pydantic.BaseModel` instead of `pydantic.BaseModel` when creating your 
 ```python
 from drf_pydantic import BaseModel
 
+
 class MyModel(BaseModel):
     name: str
     addresses: list[str]
@@ -114,6 +115,7 @@ set `"validate_pydantic": True` within the `drf_config` property of your model:
 ```python
 from drf_pydantic import BaseModel
 
+
 class MyModel(BaseModel):
     name: str
     addresses: list[str]
@@ -143,6 +145,7 @@ with those from the validated pydantic model:
 
 ```python
 from drf_pydantic import BaseModel
+
 
 class MyModel(BaseModel):
     name: str
@@ -183,6 +186,7 @@ set `"validation_error": "pydantic"` in the `drf_config` property of your model:
 import pydantic
 
 from drf_pydantic import BaseModel
+
 
 class MyModel(BaseModel):
     name: str
@@ -247,8 +251,10 @@ Your existing pydantic models:
 ```python
 from pydantic import BaseModel
 
+
 class Pet(BaseModel):
     name: str
+
 
 class Dog(Pet):
     breed: str
@@ -260,11 +266,14 @@ Update your `Dog` model and get serializer via the `drf_serializer`:
 from drf_pydantic import BaseModel as DRFBaseModel
 from pydantic import BaseModel
 
+
 class Pet(BaseModel):
     name: str
 
+
 class Dog(DRFBaseModel, Pet):
     breed: str
+
 
 Dog.drf_serializer
 ```
@@ -284,16 +293,20 @@ for all standard nested pydantic models:
 from drf_pydantic import BaseModel as DRFBaseModel
 from pydantic import BaseModel
 
+
 class Apartment(BaseModel):
     floor: int
     tenant: str
+
 
 class Building(BaseModel):
     address: str
     apartments: list[Apartment]
 
+
 class Block(DRFBaseModel):
     buildings: list[Building]
+
 
 Block.drf_serializer
 ```
