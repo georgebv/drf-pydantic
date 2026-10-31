@@ -713,6 +713,7 @@ def test_drf_field_kwargs():
     [
         ({"min_length": 1}, False),
         ({"min_length": 0}, True),
+        ({"max_length": 10}, True),
         ({"pattern": r"^\+?[0-9]+$"}, False),
         ({"pattern": r"^$"}, True),
         ({"pattern": re.compile(r"^\+?[0-9]+$")}, False),
@@ -721,6 +722,7 @@ def test_drf_field_kwargs():
     ids=[
         "min_length=1",
         "min_length=0",
+        "max_length_only",
         "pattern=raw_str",
         "pattern=raw_str_empty",
         "pattern=compiled",
@@ -738,6 +740,7 @@ def test_allow_blank(_type, constraint_class, kwargs, allow_blank):
     serializer = Person.drf_serializer()
 
     assert serializer.fields["field"].allow_blank is allow_blank
+    assert Person.drf_serializer(data={"field": ""}).is_valid() is allow_blank
 
 
 class TestManualFields:
