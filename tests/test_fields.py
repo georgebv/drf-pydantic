@@ -681,7 +681,7 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_1"].default is serializers.empty
     assert serializer.fields["field_2"].default == "default"
     assert serializer.fields["field_3"].default == "default"
-    assert serializer.fields["field_4"].default == "default"
+    assert serializer.fields["field_4"].get_default() == "default"
     assert serializer.fields["field_5"].default is serializers.empty
     assert serializer.fields["field_6"].default == "default"
     assert serializer.fields["field_7"].default is None
@@ -706,6 +706,21 @@ def test_drf_field_kwargs():
     # This is custom defined label
     assert serializer.fields["field_10"].label == "10th field"
     assert serializer.fields["field_11"].label == "11th field"
+
+
+def test_default_factory_called_per_serializer():
+    class Person(BaseModel):
+        id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
+        tags: list[str] = pydantic.Field(default_factory=list)
+
+    first = Person.drf_serializer(data={})
+    second = Person.drf_serializer(data={})
+    assert first.is_valid(raise_exception=True)
+    assert second.is_valid(raise_exception=True)
+
+    assert first.validated_data["id"] != second.validated_data["id"]
+    assert first.validated_data["tags"] == []
+    assert first.validated_data["tags"] is not second.validated_data["tags"]
 
 
 @pytest.mark.parametrize(
