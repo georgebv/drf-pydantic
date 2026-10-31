@@ -294,7 +294,7 @@ class TestScalar:
 
         assert isinstance(serializer.fields["salary"], serializers.DecimalField)
         assert serializer.fields["salary"].max_digits == decimal_context.prec
-        assert serializer.fields["salary"].decimal_places == decimal_context.prec
+        assert serializer.fields["salary"].decimal_places is None
 
     @pytest.mark.filterwarnings("ignore:.*is not supported by DRF.*")
     def test_decimal_with_consraints(self):
@@ -310,7 +310,7 @@ class TestScalar:
 
         assert isinstance(serializer.fields["salary"], serializers.DecimalField)
         assert serializer.fields["salary"].max_digits == decimal_context.prec
-        assert serializer.fields["salary"].decimal_places == decimal_context.prec
+        assert serializer.fields["salary"].decimal_places is None
         assert serializer.fields["salary"].min_value == 69
         assert serializer.fields["salary"].max_value == 420
 
@@ -326,6 +326,43 @@ class TestScalar:
         assert isinstance(serializer.fields["salary"], serializers.DecimalField)
         assert serializer.fields["salary"].max_digits == 420
         assert serializer.fields["salary"].decimal_places == 69
+
+    def test_decimal_with_zero_decimal_places(self):
+        class Person(BaseModel):
+            salary: typing.Annotated[
+                decimal.Decimal,
+                pydantic.Field(max_digits=10, decimal_places=0),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == 10
+        assert serializer.fields["salary"].decimal_places == 0
+
+        serializer = Person.drf_serializer(data={"salary": "12345"})
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["salary"] == decimal.Decimal("12345")
+
+    def test_decimal_with_max_digits_only(self):
+        class Person(BaseModel):
+            salary: typing.Annotated[
+                decimal.Decimal,
+                pydantic.Field(max_digits=5),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == 5
+        assert serializer.fields["salary"].decimal_places is None
+
+        serializer = Person.drf_serializer(data={"salary": "123.45"})
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["salary"] == decimal.Decimal("123.45")
+
+        serializer = Person.drf_serializer(data={"salary": "1234.56"})
+        assert not serializer.is_valid()
 
     def test_decimal_with_conflicting_constraints_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
@@ -681,7 +718,7 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_1"].default is serializers.empty
     assert serializer.fields["field_2"].default == "default"
     assert serializer.fields["field_3"].default == "default"
-    assert serializer.fields["field_4"].default == "default"
+    assert serializer.fields["field_4"].get_default() == "default"
     assert serializer.fields["field_5"].default is serializers.empty
     assert serializer.fields["field_6"].default == "default"
     assert serializer.fields["field_7"].default is None
@@ -708,11 +745,27 @@ def test_drf_field_kwargs():
     assert serializer.fields["field_11"].label == "11th field"
 
 
+def test_default_factory_called_per_serializer():
+    class Person(BaseModel):
+        id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
+        tags: list[str] = pydantic.Field(default_factory=list)
+
+    first = Person.drf_serializer(data={})
+    second = Person.drf_serializer(data={})
+    assert first.is_valid(raise_exception=True)
+    assert second.is_valid(raise_exception=True)
+
+    assert first.validated_data["id"] != second.validated_data["id"]
+    assert first.validated_data["tags"] == []
+    assert first.validated_data["tags"] is not second.validated_data["tags"]
+
+
 @pytest.mark.parametrize(
     ["kwargs", "allow_blank"],
     [
         ({"min_length": 1}, False),
         ({"min_length": 0}, True),
+        ({"max_length": 10}, True),
         ({"pattern": r"^\+?[0-9]+$"}, False),
         ({"pattern": r"^$"}, True),
         ({"pattern": re.compile(r"^\+?[0-9]+$")}, False),
@@ -721,6 +774,7 @@ def test_drf_field_kwargs():
     ids=[
         "min_length=1",
         "min_length=0",
+        "max_length_only",
         "pattern=raw_str",
         "pattern=raw_str_empty",
         "pattern=compiled",
@@ -738,6 +792,7 @@ def test_allow_blank(_type, constraint_class, kwargs, allow_blank):
     serializer = Person.drf_serializer()
 
     assert serializer.fields["field"].allow_blank is allow_blank
+    assert Person.drf_serializer(data={"field": ""}).is_valid() is allow_blank
 
 
 class TestManualFields:

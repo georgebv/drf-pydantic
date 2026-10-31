@@ -1,3 +1,4 @@
+import inspect
 import json
 import typing
 
@@ -251,6 +252,28 @@ def test_list_of_nested_models(
             AssertionError, match=r"You must enable pydantic validation"
         ):
             maybe_valid_serializer.pydantic_instance
+
+
+@pytest.mark.skipif(
+    "by_name" not in inspect.signature(pydantic.BaseModel.model_validate).parameters,
+    reason="model_validate(by_name=...) requires pydantic>=2.11",
+)
+def test_aliased_fields():
+    class Job(BaseModel):
+        title: str = pydantic.Field(alias="jobTitle")
+
+    class Person(BaseModel):
+        name: str = pydantic.Field(alias="fullName")
+        job: Job
+
+        drf_config = {"validate_pydantic": True}
+
+    s = Person.drf_serializer(data={"name": "Van", "job": {"title": "DM"}})
+    assert s.is_valid(), s.errors
+    assert s.pydantic_instance.name == "Van"
+    assert s.pydantic_instance.job.title == "DM"
+    assert s.validated_data["name"] == "Van"
+    assert s.validated_data["job"] == {"title": "DM"}
 
 
 def test_inheritance():
