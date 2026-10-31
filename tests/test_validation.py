@@ -521,3 +521,30 @@ def test_nested_backpopulation():
     assert s.validated_data["job"]["salary"]["value"] == 300
     assert s.pydantic_instance.job.salary.currency == "bucks"
     assert s.validated_data["job"]["salary"]["currency"] == "bucks"
+
+
+def test_nested_backpopulation_in_containers():
+    class Job(BaseModel):
+        title: str
+
+    class Person(BaseModel):
+        name: str
+        jobs: list[Job]
+        jobs_by_year: dict[str, Job]
+        past_jobs: tuple[Job, ...]
+
+        drf_config = {"validate_pydantic": True}
+
+    s = Person.drf_serializer(
+        data={
+            "name": "Van",
+            "jobs": [{"title": "DM"}],
+            "jobs_by_year": {"2024": {"title": "DM"}},
+            "past_jobs": [{"title": "Intern"}],
+        }
+    )
+    assert s.is_valid(raise_exception=True)
+    assert isinstance(s.pydantic_instance.jobs[0], Job)
+    assert s.validated_data["jobs"] == [{"title": "DM"}]
+    assert s.validated_data["jobs_by_year"] == {"2024": {"title": "DM"}}
+    assert s.validated_data["past_jobs"] == ({"title": "Intern"},)

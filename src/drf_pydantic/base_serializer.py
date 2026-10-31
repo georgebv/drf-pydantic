@@ -14,6 +14,19 @@ T = TypeVar("T", bound=Dict[str, Any])
 P = TypeVar("P", bound=pydantic.BaseModel)
 
 
+def _dump_nested_models(value: Any) -> Any:
+    """Convert pydantic models to dicts, including inside lists/tuples/dicts."""
+    if isinstance(value, pydantic.BaseModel):
+        return value.model_dump()
+    if isinstance(value, list):
+        return [_dump_nested_models(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_dump_nested_models(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _dump_nested_models(item) for key, item in value.items()}
+    return value
+
+
 class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
     _pydantic_model: Type[P]
     _drf_config: ClassVar[DrfConfigDict]
@@ -84,9 +97,7 @@ class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
             for key in return_value:
                 try:
                     pydantic_value = getattr(validated_pydantic_model, key)
-                    if isinstance(pydantic_value, pydantic.BaseModel):
-                        pydantic_value = pydantic_value.model_dump()
-                    return_value[key] = pydantic_value
+                    return_value[key] = _dump_nested_models(pydantic_value)
                 except AttributeError:  # pragma: no cover
                     warnings.warn(
                         f"Failed to set attribute `{key}` when validating instance "
