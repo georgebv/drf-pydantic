@@ -327,6 +327,23 @@ class TestScalar:
         assert serializer.fields["salary"].max_digits == 420
         assert serializer.fields["salary"].decimal_places == 69
 
+    def test_decimal_with_zero_decimal_places(self):
+        class Person(BaseModel):
+            salary: typing.Annotated[
+                decimal.Decimal,
+                pydantic.Field(max_digits=10, decimal_places=0),
+            ]
+
+        serializer = Person.drf_serializer()
+
+        assert isinstance(serializer.fields["salary"], serializers.DecimalField)
+        assert serializer.fields["salary"].max_digits == 10
+        assert serializer.fields["salary"].decimal_places == 0
+
+        serializer = Person.drf_serializer(data={"salary": "12345"})
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["salary"] == decimal.Decimal("12345")
+
     def test_decimal_with_conflicting_constraints_error(self):
         with pytest.raises(ModelConversionError) as exc_info:
 
