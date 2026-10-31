@@ -360,11 +360,11 @@ def _convert_type(  # noqa: PLR0911
         # Decimal
         if type_ is decimal.Decimal:
             _context = decimal.getcontext()
-            # Check for None explicitly: decimal_places=0 is a valid constraint
+            # Check for None explicitly: decimal_places=0 is a valid constraint.
+            # An unset decimal_places stays None (no limit on decimal places).
             if kwargs.get("max_digits", None) is None:
                 kwargs["max_digits"] = _context.prec
-            if kwargs.get("decimal_places", None) is None:
-                kwargs["decimal_places"] = _context.prec
+            kwargs.setdefault("decimal_places", None)
             return serializers.DecimalField(**kwargs)
         # Regex
         elif field is not None and any(
