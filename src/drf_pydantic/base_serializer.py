@@ -1,3 +1,4 @@
+import inspect
 import json
 import warnings
 
@@ -9,6 +10,11 @@ from rest_framework import serializers  # type: ignore
 from rest_framework.settings import api_settings  # type: ignore
 
 from drf_pydantic.config import DrfConfigDict
+
+# `by_name` was added to `model_validate` in pydantic 2.11
+_MODEL_VALIDATE_SUPPORTS_BY_NAME = (
+    "by_name" in inspect.signature(pydantic.BaseModel.model_validate).parameters
+)
 
 T = TypeVar("T", bound=Dict[str, Any])
 P = TypeVar("P", bound=pydantic.BaseModel)
@@ -41,7 +47,13 @@ class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
             return return_value
 
         try:
-            validated_pydantic_model = self._pydantic_model(**attrs)
+            if _MODEL_VALIDATE_SUPPORTS_BY_NAME:
+                # DRF field names are pydantic field names, not aliases
+                validated_pydantic_model = self._pydantic_model.model_validate(
+                    attrs, by_name=True
+                )
+            else:  # pragma: no cover
+                validated_pydantic_model = self._pydantic_model(**attrs)
         except pydantic.ValidationError as exc:
             if self._drf_config.get("validation_error") == "pydantic":
                 raise exc
