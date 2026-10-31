@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
@@ -50,7 +51,7 @@ url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 explicit = true
 
-[tool.ruff]
+[tool.ruff.lint]
 # https://docs.astral.sh/ruff/rules
 select = [
     # Pyflakes
