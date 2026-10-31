@@ -548,3 +548,33 @@ def test_nested_backpopulation_in_containers():
     assert s.validated_data["jobs"] == [{"title": "DM"}]
     assert s.validated_data["jobs_by_year"] == {"2024": {"title": "DM"}}
     assert s.validated_data["past_jobs"] == ({"title": "Intern"},)
+
+
+def test_nested_backpopulation_keeps_namedtuple():
+    class Point(typing.NamedTuple):
+        x: int
+        y: int
+
+    class Job(BaseModel):
+        title: str
+
+    class Shift(typing.NamedTuple):
+        job: Job
+        hours: int
+
+    class Person(BaseModel):
+        name: str
+        home: Point
+        shift: Shift
+
+        drf_config = {"validate_pydantic": True}
+
+    s = Person.drf_serializer(
+        data={"name": "Van", "home": [1, 2], "shift": [{"title": "DM"}, 8]}
+    )
+    assert s.is_valid(raise_exception=True)
+    assert s.validated_data["home"] == Point(1, 2)
+    assert isinstance(s.validated_data["home"], Point)
+    assert isinstance(s.validated_data["shift"], Shift)
+    assert s.validated_data["shift"].job == {"title": "DM"}
+    assert s.validated_data["shift"].hours == 8

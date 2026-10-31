@@ -15,16 +15,29 @@ P = TypeVar("P", bound=pydantic.BaseModel)
 
 
 def _dump_nested_models(value: Any) -> Any:
-    """Convert pydantic models to dicts, including inside lists/tuples/dicts."""
+    """Convert pydantic models to dicts, including inside lists/tuples/dicts.
+
+    A container is rebuilt only when one of its items changed, so containers
+    without models keep their original type (NamedTuple, OrderedDict, ...).
+    A NamedTuple that does hold models is rebuilt as the same NamedTuple.
+    """
+    dumped: Any
     if isinstance(value, pydantic.BaseModel):
         return value.model_dump()
-    if isinstance(value, list):
-        return [_dump_nested_models(item) for item in value]
-    if isinstance(value, tuple):
-        return tuple(_dump_nested_models(item) for item in value)
     if isinstance(value, dict):
-        return {key: _dump_nested_models(item) for key, item in value.items()}
-    return value
+        dumped = {key: _dump_nested_models(item) for key, item in value.items()}
+        changed = any(dumped[key] is not item for key, item in value.items())
+    elif isinstance(value, (list, tuple)):
+        dumped = [_dump_nested_models(item) for item in value]
+        changed = any(new is not old for new, old in zip(dumped, value))
+        if changed and isinstance(value, tuple):
+            if hasattr(value, "_fields"):
+                dumped = type(value)._make(dumped)  # type: ignore[attr-defined]
+            else:
+                dumped = tuple(dumped)
+    else:
+        return value
+    return dumped if changed else value
 
 
 class DrfPydanticSerializer(serializers.Serializer, Generic[P]):
