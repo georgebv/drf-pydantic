@@ -12,3 +12,7 @@
 dist
 coverage.xml
 htmlcov
+
+# Local tooling
+.claude
+.gh
