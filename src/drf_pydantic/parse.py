@@ -177,9 +177,12 @@ def _convert_field(
     drf_field_kwargs: Dict[str, Any] = {
         "required": field.is_required(),
     }
-    _default_value = field.get_default(call_default_factory=True)
-    if _default_value is not pydantic_core.PydanticUndefined:
-        drf_field_kwargs["default"] = _default_value
+    if field.default_factory is not None:
+        # Pass the factory itself: DRF calls callable defaults on each use,
+        # so every serializer instance gets a fresh value
+        drf_field_kwargs["default"] = field.default_factory
+    elif field.default is not pydantic_core.PydanticUndefined:
+        drf_field_kwargs["default"] = field.default
 
     # Adding description as help_text
     if (
@@ -407,7 +410,8 @@ def _convert_type(  # noqa: PLR0911
         if issubclass(type_, (pydantic.EmailStr, pydantic_core.Url, pydantic.HttpUrl)):
             kwargs["allow_blank"] = False
         elif issubclass(type_, str):
-            kwargs["allow_blank"] = kwargs.get("min_length", 0) == 0
+            # min_length may be present but None (e.g., constr(max_length=...))
+            kwargs["allow_blank"] = (kwargs.get("min_length", None) or 0) == 0
         # Known mapped scalar field
         for key in getattr(type_, "__mro__", []):
             try:
